@@ -8,12 +8,11 @@
                     <h3 class="mb-0"><i class="fas fa-chart-line me-2"></i>Resumen de Movimientos</h3>
                 </div>
                 <div class="col-md-6">
-                    <form method="get" class="d-flex justify-content-end align-items-center">
+                    <form method="get" id="formFecha" class="d-flex justify-content-end align-items-center">
                         <label class="me-2 fw-bold">Fecha:</label>
-                        <input type="date" name="fecha" value="@ViewBag.FechaActual" class="form-control w-50 me-2" />
-                        <button type="submit" class="btn btn-light text-primary fw-bold">
-                            <i class="fas fa-search"></i> Filtrar
-                        </button>
+
+                        <input type="date" name="fecha" value="@ViewBag.FechaActual" class="form-control w-50"
+                               onchange="document.getElementById('formFecha').submit();" />
                     </form>
                 </div>
             </div>
@@ -47,7 +46,7 @@
                         {
                             <tr>
                                 <td class="ps-4">@m.Fecha.ToString("HH:mm") hs</td>
-                                <td><span class="badge bg-light text-dark border">Admin</span></td>
+                                <td><span class="badge bg-light text-dark border">@m.Usuario </span></td>
                                 <td>@m.Concepto</td>
                                 <td class="text-end text-success fw-bold">
                                     @(m.Tipo == TipoMovimiento.Ingreso ? "+ " + m.Monto.ToString("N2") : "-")

@@ -1,0 +1,209 @@
+@model ImprimirCodigoBarrasViewModel
+
+@{
+    var productos = ViewBag.Productos as List<Productos>;
+}
+
+<style>
+    .etiqueta-preview {
+        width: 58mm;
+        margin: auto;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: white;
+        text-align: center;
+    }
+
+    .etiqueta-preview .nombre {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .etiqueta-preview .codigo-texto {
+        font-size: 12px;
+        margin-top: 5px;
+        letter-spacing: 1px;
+    }
+
+    .barcode-img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .producto-item {
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .producto-item:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+
+<div class="container mt-5 pt-4">
+
+    @if (Model == null)
+    {
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-dark text-white">
+                <h4>
+                    <i class="bi bi-upc-scan"></i>
+                    Seleccionar producto
+                </h4>
+            </div>
+
+            <div class="card-body">
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Buscar producto
+                    </label>
+
+                    <input type="text" id="buscarProducto" class="form-control"
+                           placeholder="Buscar por nombre o código..." />
+
+                </div>
+
+                <div class="list-group mt-3 d-none" id="listaProductos">
+
+                    @foreach (var producto in productos)
+                    {
+                        <a href="@Url.Action("Imprimir", "Codigobarras", new { id = producto.IdProducto })"
+                               class="list-group-item list-group-item-action producto-item">
+
+                            <div class="fw-bold">
+                                @producto.Nombre
+                            </div>
+
+                            <small class="text-muted">
+                                Código: @producto.Codigo
+                            </small>
+
+                        </a>
+                    }
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <script>
+
+                document.getElementById("buscarProducto")
+                    .addEventListener("keyup", function () {
+
+                        let filtro = this.value.toLowerCase().trim();
+
+                        let lista = document.getElementById("listaProductos");
+
+                        let items = document.querySelectorAll(".producto-item");
+
+                        // Si está vacío → ocultar lista
+                        if (filtro === "") {
+
+                            lista.classList.add("d-none");
+
+                            return;
+                        }
+
+                        lista.classList.remove("d-none");
+
+                        items.forEach(item => {
+
+                            let texto = item.innerText.toLowerCase();
+
+                            item.style.display =
+                                texto.includes(filtro)
+                                    ? ""
+                                    : "none";
+                        });
+
+                    });
+
+        </script>
+
+        
+
+        return;
+    }
+
+    <div class="card shadow-sm border-0">
+
+        <div class="card-header bg-dark text-white">
+            <h4>
+                <i class="bi bi-upc-scan"></i>
+                Imprimir código de barras
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <form asp-action="Imprimir" method="post">
+
+                <input type="hidden" asp-for="ProductoId" />
+
+                <div class="mb-3">
+
+                    <label>Producto</label>
+
+                    <input asp-for="NombreProducto" class="form-control" readonly />
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label>Código</label>
+
+                    <input asp-for="Codigo" class="form-control" readonly />
+
+                </div>
+
+                <div class="mb-3">
+                    <label>Cantidad de etiquetas</label>
+
+                    <input asp-for="Cantidad" class="form-control" type="number" min="1" />
+                </div>
+
+                <hr />
+
+                <h5 class="text-center mb-3">
+                    Vista previa
+                </h5>
+
+                <div class="etiqueta-preview">
+
+                    <div class="nombre">
+                        @Model.NombreProducto
+                    </div>
+
+                    <img src="/Codigobarras/GenerarImagen?codigo=@Model.Codigo" class="barcode-img" />
+
+                    <div class="codigo-texto">
+                        @Model.Codigo
+                    </div>
+
+                </div>
+
+                <div class="mt-4">
+
+                    <button type="submit" class="btn btn-success w-100">
+
+                        <i class="bi bi-printer"></i>
+                        Imprimir etiquetas
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>

@@ -3,10 +3,14 @@
 @{
     ViewBag.Title = "Crear Producto";
 }
+
 @if (ViewBag.Error != null)
 {
-    <div class="alert alert-danger">@ViewBag.Error</div>
+    <div class="alert alert-danger">
+        @ViewBag.Error
+    </div>
 }
+
 @if (ViewBag.Errores != null)
 {
     <div class="alert alert-warning">
@@ -19,122 +23,357 @@
     </div>
 }
 
-
 <div class="container mt-5 d-flex justify-content-center">
-    <div class="card shadow-sm border-0 w-100" style="max-width: 800px;">
+
+    <div class="card shadow-sm border-0 w-100"
+         style="max-width: 800px;">
+
         <div class="card-header bg-success text-white">
-            <h4 class="mb-0">➕ Crear nuevo producto</h4>
+
+            <h4 class="mb-0">
+                ➕ Crear nuevo producto
+            </h4>
+
         </div>
+
         <div class="card-body">
-            @using (Html.BeginForm("Create", "Productos", FormMethod.Post, new { enctype = "multipart/form-data" }))
+
+            @using (Html.BeginForm(
+                "Create",
+                "Productos",
+                FormMethod.Post,
+                new { enctype = "multipart/form-data" }))
             {
                 @Html.AntiForgeryToken()
 
                 <div class="row g-3">
+
+                    <!-- Código -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.Codigo)
-                        @Html.TextBoxFor(m => m.Codigo, new { @class = "form-control", required = "required" })
+
+                        <label for="codigoInput"
+                               class="form-label">
+
+                            Código
+
+                        </label>
+
+                        <div class="input-group">
+
+                            @Html.TextBoxFor(m => m.Codigo,
+                                new
+                                {
+                                    @class = "form-control",
+                                    required = "required",
+                                    id = "codigoInput"
+                                })
+
+                            <button type="button"
+                                    class="btn btn-outline-primary"
+                                    onclick="generarCodigoBarra()">
+
+                                <i class="bi bi-upc-scan"></i>
+                                Generar
+
+                            </button>
+
+                        </div>
+
                     </div>
 
+                    <!-- Nombre -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.Nombre)
-                        @Html.TextBoxFor(m => m.Nombre, new { @class = "form-control", required = "required" })
+
+                        @Html.LabelFor(m => m.Nombre,
+                            new { @class = "form-label" })
+
+                        @Html.TextBoxFor(m => m.Nombre,
+                            new
+                            {
+                                @class = "form-control",
+                                required = "required"
+                            })
+
                     </div>
 
+                    <!-- Marca -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.Categoria, "Marca")
-                        @Html.TextBoxFor(m => m.Categoria, new { @class = "form-control" })
+
+                        @Html.LabelFor(m => m.Categoria,
+                            "Marca",
+                            new { @class = "form-label" })
+
+                        @Html.TextBoxFor(m => m.Categoria,
+                            new { @class = "form-control" })
+
                     </div>
 
+                    <!-- Descripción -->
                     <div class="col-md-12">
-                        @Html.LabelFor(m => m.Descripcion)
-                        @Html.TextAreaFor(m => m.Descripcion, new { @class = "form-control", rows = "3" })
+
+                        @Html.LabelFor(m => m.Descripcion,
+                            new { @class = "form-label" })
+
+                        @Html.TextAreaFor(m => m.Descripcion,
+                            new
+                            {
+                                @class = "form-control",
+                                rows = "3"
+                            })
+
                     </div>
 
+                    <!-- Precio costo -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.PrecioCosto)
-                        @Html.TextBoxFor(m => m.PrecioCosto, new { @class = "form-control", type = "number", step = "0.01" })
+
+                        @Html.LabelFor(m => m.PrecioCosto,
+                            new { @class = "form-label" })
+
+                        @Html.TextBoxFor(m => m.PrecioCosto,
+                            new
+                            {
+                                @class = "form-control",
+                                type = "number",
+                                step = "0.01"
+                            })
+
                     </div>
 
+                    <!-- Recargo -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.RecargoPorcentaje)
-                        @Html.TextBoxFor(m => m.RecargoPorcentaje, new { @class = "form-control", type = "number", step = "1" })
+
+                        @Html.LabelFor(m => m.RecargoPorcentaje,
+                            new { @class = "form-label" })
+
+                        @Html.TextBoxFor(m => m.RecargoPorcentaje,
+                            new
+                            {
+                                @class = "form-control",
+                                type = "number",
+                                step = "1"
+                            })
+
                     </div>
 
+                    <!-- Precio venta -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.PrecioVenta)
-                        @Html.TextBoxFor(m => m.PrecioVenta, new { @class = "form-control", type = "number", step = "10" })
+
+                        @Html.LabelFor(m => m.PrecioVenta,
+                            new { @class = "form-label" })
+
+                        @Html.TextBoxFor(m => m.PrecioVenta,
+                            new
+                            {
+                                @class = "form-control",
+                                type = "number",
+                                step = "10"
+                            })
+
                     </div>
 
+                    <!-- Stock actual -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.StockActual)
-                        @Html.TextBoxFor(m => m.StockActual, new { @class = "form-control", type = "number" })
+
+                        @Html.LabelFor(m => m.StockActual,
+                            new { @class = "form-label" })
+
+                        @Html.TextBoxFor(m => m.StockActual,
+                            new
+                            {
+                                @class = "form-control",
+                                type = "number"
+                            })
+
                     </div>
 
+                    <!-- Stock mínimo -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.StockMinimo)
-                        @Html.TextBoxFor(m => m.StockMinimo, new { @class = "form-control", type = "number" })
+
+                        @Html.LabelFor(m => m.StockMinimo,
+                            new { @class = "form-label" })
+
+                        @Html.TextBoxFor(m => m.StockMinimo,
+                            new
+                            {
+                                @class = "form-control",
+                                type = "number"
+                            })
+
                     </div>
 
+                    <!-- Proveedor -->
                     <div class="col-md-4">
-                        @Html.LabelFor(m => m.NombreProveedor, "Proveedor")
-                        @Html.DropDownListFor(m => m.NombreProveedor, Model.Proveedores, "Seleccione un proveedor", new { @class = "form-control" })
+
+                        @Html.LabelFor(m => m.NombreProveedor,
+                            "Proveedor",
+                            new { @class = "form-label" })
+
+                        @Html.DropDownListFor(
+                            m => m.NombreProveedor,
+                            Model.Proveedores,
+                            "Seleccione un proveedor",
+                            new { @class = "form-control" })
+
                     </div>
 
-
-                    <!-- Imagen y Vista Previa -->
+                    <!-- Imagen -->
                     <div class="col-md-6">
-                        <label>Imagen</label>
-                        <input type="file" name="imagen" class="form-control" accept="image/*" onchange="mostrarVistaPrevia(this)" />
+
+                        <label for="imagenInput"
+                               class="form-label">
+
+                            Imagen
+
+                        </label>
+
+                        <input type="file"
+                               id="imagenInput"
+                               name="imagen"
+                               class="form-control"
+                               accept="image/*"
+                               onchange="mostrarVistaPrevia(this)" />
+
                     </div>
 
+                    <!-- Vista previa -->
                     <div class="col-md-6 text-center">
-                        <label>Vista previa:</label><br />
-                        <img id="imgPreview" src="@Url.Content(Model?.Imagen ?? "~/imagenes/no-disponible.png")"
+
+                        <p class="fw-bold mb-1">
+                            Vista previa:
+                        </p>
+
+                        <img id="imgPreview"
+                             src="@Url.Content(Model?.Imagen ?? "~/imagenes/no-disponible.png")"
                              class="img-thumbnail mt-2"
                              style="max-height: 120px;" />
+
                     </div>
 
+                    <!-- Botones -->
                     <div class="col-12 text-end mt-3">
-                        <button type="submit" class="btn btn-success">💾 Guardar</button>
-                        <a href="@Url.Action("Index", "Productos")" class="btn btn-secondary">↩️ Cancelar</a>
+
+                        <button type="submit"
+                                class="btn btn-success">
+
+                            💾 Guardar
+
+                        </button>
+
+                        <a href="@Url.Action("Index", "Productos")"
+                           class="btn btn-secondary">
+
+                            ↩️ Cancelar
+
+                        </a>
+
                     </div>
+
                 </div>
             }
+
         </div>
+
     </div>
+
 </div>
 
 @section Scripts {
+
     <script>
+
         function mostrarVistaPrevia(input) {
+
             if (input.files && input.files[0]) {
+
                 const reader = new FileReader();
+
                 reader.onload = function (e) {
-                    document.getElementById('imgPreview').src = e.target.result;
+
+                    document.getElementById('imgPreview').src =
+                        e.target.result;
                 };
+
                 reader.readAsDataURL(input.files[0]);
             }
         }
 
         function calcularPrecioVenta() {
-        const costoInput = document.querySelector('input[name="PrecioCosto"]');
-        const recargoInput = document.querySelector('input[name="RecargoPorcentaje"]');
-        const precioVentaInput = document.querySelector('input[name="PrecioVenta"]');
 
-        const costo = parseFloat(costoInput.value) || 0;
-        const recargo = parseFloat(recargoInput.value) || 0;
+            const costoInput =
+                document.querySelector('input[name="PrecioCosto"]');
 
-        const precioVenta = costo + (costo * recargo / 100);
-        precioVentaInput.value = precioVenta.toFixed(2);
-    }
+            const recargoInput =
+                document.querySelector('input[name="RecargoPorcentaje"]');
 
-    // Ejecutar al cargar la página para mostrar el precio si ya hay valores
-    window.addEventListener('load', calcularPrecioVenta);
+            const precioVentaInput =
+                document.querySelector('input[name="PrecioVenta"]');
 
-    // Ejecutar al cambiar cualquiera de los dos inputs
-    document.querySelector('input[name="PrecioCosto"]').addEventListener('input', calcularPrecioVenta);
-    document.querySelector('input[name="RecargoPorcentaje"]').addEventListener('input', calcularPrecioVenta);
+            const costo =
+                parseFloat(costoInput.value) || 0;
+
+            const recargo =
+                parseFloat(recargoInput.value) || 0;
+
+            const precioVenta =
+                costo + (costo * recargo / 100);
+
+            precioVentaInput.value =
+                precioVenta.toFixed(2);
+        }
+
+        // Calcular al cargar
+        window.addEventListener(
+            'load',
+            calcularPrecioVenta
+        );
+
+        // Recalcular al cambiar
+        document.querySelector(
+            'input[name="PrecioCosto"]'
+        ).addEventListener(
+            'input',
+            calcularPrecioVenta
+        );
+
+        document.querySelector(
+            'input[name="RecargoPorcentaje"]'
+        ).addEventListener(
+            'input',
+            calcularPrecioVenta
+        );
+
+        // Generar código de barras
+        async function generarCodigoBarra() {
+
+            try {
+
+                const response =
+                    await fetch('/Codigobarras/GenerarCodigo');
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        'Error al generar código'
+                    );
+                }
+
+                const data =
+                    await response.json();
+
+                document.getElementById(
+                    'codigoInput'
+                ).value = data.codigo;
+
+            }
+            catch (error) {
+
+                alert(
+                    'No se pudo generar el código de barras'
+                );
+
+                console.error(error);
+            }
+        }
 
     </script>
 }

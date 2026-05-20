@@ -161,56 +161,80 @@ public JsonResult Buscar(string term, string proveedor, int pagina = 1)
             return View(modelo);
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Create([FromForm] Productos prod, IFormFile? imagen)
+       [HttpPost]
+[ValidateAntiForgeryToken]
+public IActionResult Create([FromForm] Productos prod, IFormFile? imagen)
+{
+    var culturaArg = new System.Globalization.CultureInfo("es-AR");
+
+    System.Threading.Thread.CurrentThread.CurrentCulture = culturaArg;
+    System.Threading.Thread.CurrentThread.CurrentUICulture = culturaArg;
+
+    ViewBag.FotoPerfil =
+        HttpContext.Session.GetString("FotoPerfil");
+
+    try
+    {
+        // 👇 MOSTRAR ERRORES REALES
+        if (!ModelState.IsValid)
         {
-            var culturaArg = new System.Globalization.CultureInfo("es-AR");
-            System.Threading.Thread.CurrentThread.CurrentCulture = culturaArg;
-            System.Threading.Thread.CurrentThread.CurrentUICulture = culturaArg;
-
-            ViewBag.FotoPerfil = HttpContext.Session.GetString("FotoPerfil");
-
-            try
-            {
-                if (ModelState.IsValid)
-                {
-                    if (imagen != null && imagen.Length > 0)
-                    {
-                        string nombreArchivo = Guid.NewGuid().ToString() + Path.GetExtension(imagen.FileName);
-                        string rutaCarpeta = Path.Combine(_webHostEnvironment.WebRootPath, "imagenes", "productos");
-                        Directory.CreateDirectory(rutaCarpeta);
-
-                        using (var stream = new FileStream(Path.Combine(rutaCarpeta, nombreArchivo), FileMode.Create))
-                        {
-                            imagen.CopyTo(stream);
-                        }
-
-                        prod.Imagen = "/imagenes/productos/" + nombreArchivo;
-                    }
-                    else
-                    {
-                        prod.Imagen = "/imagenes/productos/no-disponible.png";
-                    }
-
-                    db.AgregarProducto(prod);
-                    return RedirectToAction("Index");
-                }
-            }
-            catch (Exception ex)
-            {
-                ViewBag.Error = "Error al guardar el producto: " + ex.Message;
-            }
-
-            prod.Proveedores = db.ObtenerProveedores()
-                .Select(p => new SelectListItem
-                {
-                    Value = p.NombreProveedor,
-                    Text = p.NombreProveedor
-                }).ToList();
-
-            return View(prod);
+            ViewBag.Errores = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .ToList();
         }
+
+        if (ModelState.IsValid)
+        {
+            if (imagen != null && imagen.Length > 0)
+            {
+                string nombreArchivo =
+                    Guid.NewGuid().ToString() +
+                    Path.GetExtension(imagen.FileName);
+
+                string rutaCarpeta =
+                    Path.Combine(
+                        _webHostEnvironment.WebRootPath,
+                        "imagenes",
+                        "productos");
+
+                Directory.CreateDirectory(rutaCarpeta);
+
+                using (var stream = new FileStream(
+                    Path.Combine(rutaCarpeta, nombreArchivo),
+                    FileMode.Create))
+                {
+                    imagen.CopyTo(stream);
+                }
+
+                prod.Imagen =
+                    "/imagenes/productos/" + nombreArchivo;
+            }
+            else
+            {
+                prod.Imagen =
+                    "/imagenes/productos/no-disponible.png";
+            }
+
+            db.AgregarProducto(prod);
+
+            return RedirectToAction("Index");
+        }
+    }
+    catch (Exception ex)
+    {
+        ViewBag.Error =
+            "Error al guardar el producto: " + ex.Message;
+    }
+
+    prod.Proveedores = db.ObtenerProveedores()
+        .Select(p => new SelectListItem
+        {
+            Value = p.NombreProveedor,
+            Text = p.NombreProveedor
+        }).ToList();
+
+    return View(prod);
+}
 
         public IActionResult Delete(int id)
         {

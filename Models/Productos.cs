@@ -33,8 +33,8 @@ namespace GestionVentas.Models
       
         public List<SelectListItem>? Proveedores { get; set; }
 
-        
-
+       public virtual ICollection<Codigobarras> CodigosBarras { get; set; }
+    = new List<Codigobarras>();
 
     }
 }

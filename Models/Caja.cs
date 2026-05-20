@@ -34,7 +34,7 @@ namespace GestionVentas.Models
         public string Concepto { get; set; }
         public decimal Monto { get; set; }
         public TipoMovimiento Tipo { get; set; } // Ahora sí lo reconoce
-        
+         public string? Usuario { get; set; }
         public virtual Caja Caja { get; set; }
     }
 }

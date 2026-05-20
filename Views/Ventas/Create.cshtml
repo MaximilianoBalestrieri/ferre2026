@@ -200,6 +200,7 @@
     </div>
 </div>
 
+@*-----------------------------PAGO---------------------------------- *@
 <div class="modal fade" id="modalAbonar" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm" style="max-width: 420px;">
         <div class="modal-content border-success border-2">
@@ -421,7 +422,7 @@ document.getElementById("descuento").addEventListener("input", function() {
         });
     });
 
-    // --- REGISTRO FINAL (AQUÍ CORREGIMOS EL NOMBREPROD) ---
+    @*------------------CONFIRMAR COMPRA---------------------*@
    document.getElementById("confirmarCompra").addEventListener("click", function () {
     const idCliente = document.getElementById("idCliente").value;
     const medio = document.querySelector('input[name="medioPago"]:checked').value;

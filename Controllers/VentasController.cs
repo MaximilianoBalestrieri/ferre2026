@@ -77,7 +77,8 @@ namespace GestionVentas.Controllers
                                 Fecha = DateTime.Now,
                                 Monto = datos.MontoVenta,
                                 Concepto = $"Venta Factura N° {resultado.idFactura} {etiquetaMedio}",
-                                Tipo = TipoMovimiento.Ingreso
+                                Tipo = TipoMovimiento.Ingreso,
+                                Usuario = User.Identity.Name
                             };
 
                             db.MovimientosCaja.Add(mov);

@@ -4,6 +4,7 @@ using GestionVentas.Models;
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Security.Claims;
 
 public class CajaController : Controller
 {
@@ -75,7 +76,7 @@ public class CajaController : Controller
             FechaApertura = DateTime.Now,
             MontoInicial = montoInicial,
             EstaAbierta = true,
-            UsuarioId = "Admin",
+            UsuarioId = User.Identity.Name,
             MontoEsperado = montoInicial
         };
 
@@ -97,13 +98,14 @@ public class CajaController : Controller
             string conceptoFinal = $"{concepto} ({medioPago})";
 
             var mov = new MovimientoCaja
-            {
-                CajaId = cajaActual.Id,
-                Fecha = DateTime.Now,
-                Monto = monto,
-                Concepto = conceptoFinal, 
-                Tipo = tipo 
-            };
+{
+    CajaId = cajaActual.Id,
+    Fecha = DateTime.Now,
+    Monto = monto,
+    Concepto = conceptoFinal,
+    Tipo = tipo,
+    Usuario = User.Identity.Name
+};
 
             conexion.MovimientosCaja.Add(mov);
 

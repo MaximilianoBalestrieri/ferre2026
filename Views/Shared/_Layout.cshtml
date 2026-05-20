@@ -14,7 +14,7 @@
     <!-- Bootstrap CSS desde CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet" />
-
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
     <!-- Tu CSS personalizado -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 
@@ -103,12 +103,12 @@
                                 <a class="nav-link" asp-controller="Home" asp-action="Index">Inicio</a>
                             </li>
 
-                            <a class="nav-link" href="@Url.Action("Index", "Productos")">
+                            @* <a class="nav-link" href="@Url.Action("Index", "Productos")">
                                 Productos
-                            </a>
+                            </a> *@
 
 
-                            @*  <ul class="dropdown-menu" aria-labelledby="navbarDropdownInicio">
+                            @* <ul class="dropdown-menu" aria-labelledby="navbarDropdownInicio">
                                 <li><a class="dropdown-item" asp-controller="Productos" asp-action="Index">Propietarios</a>
                                 </li>
                                 <li><a class="dropdown-item" asp-controller="Ventas" asp-action="Index">Inquilinos</a></li>
@@ -119,7 +119,51 @@
                             </ul> *@
                         </li>
 
+                        <li class="nav-item dropdown">
 
+                            <a class="nav-link dropdown-toggle" href="#" id="productosDropdown" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
+                               
+                                Productos
+
+                            </a>
+
+                            <ul class="dropdown-menu">
+
+                                <li>
+                                    <a class="dropdown-item" href="@Url.Action("Index", "Productos")">
+
+                                        <i class="bi bi-list-ul"></i>
+                                        Ver productos
+
+                                    </a>
+                                </li>
+
+                                <li>
+                                    <a class="dropdown-item" href="@Url.Action("Create", "Productos")">
+
+                                        <i class="bi bi-plus-circle"></i>
+                                        Agregar producto
+
+                                    </a>
+                                </li>
+
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+
+                                <li>
+                                    <a class="dropdown-item" href="@Url.Action("Imprimir", "Codigobarras")">
+
+                                        <i class="bi bi-upc-scan"></i>
+                                        Imprimir códigos
+
+                                    </a>
+                                </li>
+
+                            </ul>
+
+                        </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="navbarVentas" role="button"
                                    data-bs-toggle="dropdown" aria-expanded="false">
@@ -132,7 +176,7 @@
                                 <li>
                                     <a class="dropdown-item" href="@Url.Action("Index", "Facturas")">Listado de Facturas</a>
                                 </li>
-                                 <li>
+                                <li>
                                     <a class="dropdown-item" href="@Url.Action("Index", "ClientesCtaCte")">Cta Cte</a>
                                 </li>
                             </ul>
