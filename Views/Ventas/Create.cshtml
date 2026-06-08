@@ -3,7 +3,12 @@
     ViewBag.Title = "Facturación";
     var fechaHoy = DateTime.Now.ToString("dd/MM/yyyy");
 }
-
+@if (TempData["MensajeInfo"] != null)
+{
+    <div class="alert alert-warning">
+        @TempData["MensajeInfo"]
+    </div>
+}
 <style>
     /* Estilos de tabla y compactación */
     #tablaFactura th, #tablaFactura td { padding: 4px 8px !important; vertical-align: middle; }

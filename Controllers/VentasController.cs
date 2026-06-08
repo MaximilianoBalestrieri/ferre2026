@@ -16,20 +16,32 @@ namespace GestionVentas.Controllers
             db = new ConexionDB(config);
         }
 
-        public ActionResult Create()
-        {
-            bool hayCaja = db.VerificarSiHayCajaAbierta();
+       public ActionResult Create()
+{
+    bool cajaViejaCerrada = db.VerificarYCerrarCajaVencida();
 
-            if (!hayCaja)
-            {
-                TempData["MensajeError"] = "DEBE ABRIR CAJA PRIMERO PARA PODER VENDER.";
-                return RedirectToAction("AbrirCaja", "Caja");
-            }
+    if (cajaViejaCerrada)
+    {
+        TempData["MensajeInfo"] =
+            "La caja del día anterior fue cerrada automáticamente.";
+    }
 
-            var productos = db.ObtenerProductos() ?? new List<Productos>();
-            ViewBag.nombreyApellido = User.Identity.Name ?? "Vendedor";
-            return View(productos);
-        }
+    bool hayCaja = db.VerificarSiHayCajaAbierta();
+
+    if (!hayCaja)
+    {
+        TempData["MensajeError"] =
+            "DEBE ABRIR CAJA PRIMERO PARA PODER VENDER.";
+
+        return RedirectToAction("AbrirCaja", "Caja");
+    }
+
+    var productos = db.ObtenerProductos() ?? new List<Productos>();
+
+    ViewBag.nombreyApellido = User.Identity.Name ?? "Vendedor";
+
+    return View(productos);
+}
 
 
         public IActionResult ImprimirTicket(int id)

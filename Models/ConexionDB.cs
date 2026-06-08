@@ -440,6 +440,30 @@ public List<Cliente> ObtenerClientesGenerales()
     return lista;
 }
 
+public bool VerificarYCerrarCajaVencida()
+{
+    var cajaAbierta = Cajas
+        .Where(c => c.EstaAbierta)
+        .OrderByDescending(c => c.FechaApertura)
+        .FirstOrDefault();
+
+    if (cajaAbierta != null)
+    {
+        if (cajaAbierta.FechaApertura.Date < DateTime.Today)
+        {
+            cajaAbierta.EstaAbierta = false;
+            cajaAbierta.FechaCierre = DateTime.Now;
+
+            Cajas.Update(cajaAbierta);
+            SaveChanges();
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 public void RegistrarMovimientoCaja(int idCaja, decimal monto, string concepto, string tipo)
 {
     using (var conn = ObtenerConexion())
