@@ -1,5 +1,6 @@
 using GestionVentas.Models;
 using Microsoft.AspNetCore.Mvc;
+using GestionVentas.Helpers;
 
 namespace GestionVentas.Controllers
 {
@@ -74,7 +75,7 @@ public ActionResult Create(Presupuesto presupuesto)
         }
 
         // 2. Lógica normal de guardado
-        presupuesto.Fecha = DateTime.Now;
+        presupuesto.Fecha = FechaHelper.AhoraArgentina();
         db.AgregarPresupuesto(presupuesto);
 
         return RedirectToAction("Index");

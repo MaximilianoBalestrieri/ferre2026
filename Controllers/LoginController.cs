@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using GestionVentas.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
+using GestionVentas.Helpers;
 
 namespace GestionVentas.Controllers
 {

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using GestionVentas.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
-
+using GestionVentas.Helpers;
 namespace GestionVentas.Controllers
 {
   //  [Authorize] 

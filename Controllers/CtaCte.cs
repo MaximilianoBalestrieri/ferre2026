@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http; // Para usar Context.Session
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GestionVentas.Helpers;
 
 namespace GestionVentas.Controllers
 {

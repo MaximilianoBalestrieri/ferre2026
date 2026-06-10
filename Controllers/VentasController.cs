@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using GestionVentas.Models;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
+using GestionVentas.Helpers;
 
 namespace GestionVentas.Controllers
 {

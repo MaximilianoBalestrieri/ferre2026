@@ -1,7 +1,7 @@
 using GestionVentas.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using GestionVentas.Helpers;
 namespace GestionVentas.Controllers
 {
     public class FacturasController : Controller

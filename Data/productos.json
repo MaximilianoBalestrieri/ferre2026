@@ -51,8 +51,8 @@
     "Id": 7,
     "Nombre": "Cinta Metrica",
     "Descripcion": "de 5 mts...",
-    "PrecioAnterior": 9000,
-    "PrecioActual": 7500,
+    "PrecioAnterior": 8000,
+    "PrecioActual": 5500,
     "Imagen": "/imagenes/productos/cintametrica.jpg"
   },
   {

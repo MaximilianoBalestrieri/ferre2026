@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore; // Necesario para DbContext
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using GestionVentas.Models;
+using GestionVentas.Helpers;
 
 namespace GestionVentas.Models
 {
@@ -452,7 +453,7 @@ public bool VerificarYCerrarCajaVencida()
         if (cajaAbierta.FechaApertura.Date < DateTime.Today)
         {
             cajaAbierta.EstaAbierta = false;
-            cajaAbierta.FechaCierre = DateTime.Now;
+            cajaAbierta.FechaCierre =FechaHelper.AhoraArgentina();
 
             Cajas.Update(cajaAbierta);
             SaveChanges();
@@ -541,7 +542,7 @@ public void RegistrarPagoEnHistorial(int idCliente, decimal monto, string medio)
         
         // Definimos tipos de datos para evitar errores de conversión
         cmd.Parameters.Add("@id", System.Data.SqlDbType.Int).Value = idCliente;
-        cmd.Parameters.Add("@fecha", System.Data.SqlDbType.DateTime).Value = DateTime.Now;
+        cmd.Parameters.Add("@fecha", System.Data.SqlDbType.DateTime).Value =FechaHelper.AhoraArgentina();
         cmd.Parameters.Add("@conc", System.Data.SqlDbType.NVarChar).Value = "PAGO (" + medio.ToUpper() + ")";
         
         // Forzamos el tipo Decimal para que no lo confunda con texto
