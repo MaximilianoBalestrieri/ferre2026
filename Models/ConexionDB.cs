@@ -225,542 +225,549 @@ namespace GestionVentas.Models
         }
 
 
-public List<Factura> ObtenerFacturasPendientesPorCliente(int idCliente)
-{
-    // Si el error persiste aquí, verifica si tu clase es 'Factura' o 'Facturas'
-    List<Factura> lista = new List<Factura>();
+        public List<Factura> ObtenerFacturasPendientesPorCliente(int idCliente)
+        {
+            // Si el error persiste aquí, verifica si tu clase es 'Factura' o 'Facturas'
+            List<Factura> lista = new List<Factura>();
 
-    using (var conn = ObtenerConexion())
-    {
-        string sql = @"SELECT idFactura, diaVenta, montoVenta, vendedor, medioPago 
+            using (var conn = ObtenerConexion())
+            {
+                string sql = @"SELECT idFactura, diaVenta, montoVenta, vendedor, medioPago 
                        FROM facturas 
                        WHERE idCliente = @id AND estado = 'Pendiente' 
                        ORDER BY diaVenta DESC";
 
-        conn.Open();
-        using (var cmd = new SqlCommand(sql, conn))
-        {
-            cmd.Parameters.AddWithValue("@id", idCliente);
-            using (var dr = cmd.ExecuteReader())
-            {
-                while (dr.Read())
+                conn.Open();
+                using (var cmd = new SqlCommand(sql, conn))
                 {
-                    lista.Add(new Factura // <--- Asegúrate que coincida con tu Model
+                    cmd.Parameters.AddWithValue("@id", idCliente);
+                    using (var dr = cmd.ExecuteReader())
                     {
-                        IdFactura = Convert.ToInt32(dr["idFactura"]),
-                        DiaVenta = Convert.ToDateTime(dr["diaVenta"]),
-                        MontoVenta = Convert.ToDecimal(dr["montoVenta"]),
-                        Vendedor = dr["vendedor"].ToString(),
-                        MedioPago = dr["medioPago"].ToString()
-                    });
+                        while (dr.Read())
+                        {
+                            lista.Add(new Factura // <--- Asegúrate que coincida con tu Model
+                            {
+                                IdFactura = Convert.ToInt32(dr["idFactura"]),
+                                DiaVenta = Convert.ToDateTime(dr["diaVenta"]),
+                                MontoVenta = Convert.ToDecimal(dr["montoVenta"]),
+                                Vendedor = dr["vendedor"].ToString(),
+                                MedioPago = dr["medioPago"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+            return lista;
+        }
+
+
+        public void InsertarGastoCtaCte(int idCliente, decimal total, string vendedor, string detalle, DateTime fecha)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // 1. Usamos @DiaVenta en el SQL para que coincida con el nombre de la columna
+                string sql = @"INSERT INTO Facturas (DiaVenta, MontoVenta, Vendedor, IdCliente, MedioPago, TipoVenta) 
+                       VALUES (@DiaVenta, @total, @vendedor, @idCliente, 'CtaCte', 'Cuenta Corriente')";
+
+                conn.Open();
+                using (var cmd = new SqlCommand(sql, conn))
+                {
+                    // 2. Aquí usamos @DiaVenta para que coincida con el string de arriba
+                    cmd.Parameters.AddWithValue("@DiaVenta", fecha);
+
+                    cmd.Parameters.AddWithValue("@idCliente", idCliente);
+                    cmd.Parameters.AddWithValue("@total", total);
+                    cmd.Parameters.AddWithValue("@vendedor", (object)vendedor ?? DBNull.Value);
+
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+        }
+
+
+
+
+
+
+        // 1. Inserta la factura y devuelve el ID generado para poder meterle los productos después
+        public int InsertarFacturaCtaCte(int idCliente, decimal total, string vendedor)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // El SELECT SCOPE_IDENTITY() es CLAVE para que devuelva el nro de factura
+                string sql = @"INSERT INTO Facturas (DiaVenta, MontoVenta, Vendedor, IdCliente, MedioPago, TipoVenta) 
+                       VALUES (GETDATE(), @monto, @vendedor, @idCli, 'CtaCte', 'Cuenta Corriente');
+                       SELECT SCOPE_IDENTITY();";
+
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@monto", total);
+                cmd.Parameters.AddWithValue("@vendedor", vendedor ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@idCli", idCliente);
+
+                conn.Open();
+                // Usamos ExecuteScalar para capturar el ID
+                object result = cmd.ExecuteScalar();
+                return (result != null) ? Convert.ToInt32(result) : 0;
+            }
+        }
+
+        public void InsertarFacturaItem(int idFactura, int idProducto, string nombre, int cantidad, decimal precio)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // Ahora usamos exactamente los nombres de tu SELECT: 
+                // idFactura, idItem, nombreProd, cantidad, precio
+                string sql = @"INSERT INTO facturaitem (idFactura, idItem, nombreProd, cantidad, precio) 
+                       VALUES (@idF, @idI, @nom, @cant, @pre)";
+
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@idF", idFactura);
+                cmd.Parameters.AddWithValue("@idI", idProducto); // Este es tu idItem
+                cmd.Parameters.AddWithValue("@nom", nombre);
+                cmd.Parameters.AddWithValue("@cant", cantidad);
+                cmd.Parameters.AddWithValue("@pre", precio);
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+
+
+
+        // 3. Descuenta del stock para que no vendas cosas que no tenés
+        public void ActualizarStock(int idProducto, int cantidad)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // Cantidad viene como negativa (ej: -5), por eso sumamos (Stock = Stock + (-5))
+                string sql = "UPDATE Productos SET Stock = Stock + @cant WHERE IdProducto = @id";
+
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@cant", cantidad);
+                cmd.Parameters.AddWithValue("@id", idProducto);
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+        public void RegistrarEnHistorialCtaCte(int idCliente, string concepto, decimal monto, int idProducto, int cantidad)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // Corregimos el orden: IdCliente, Fecha, Concepto, Monto, IdProducto, Cantidad
+                string sql = @"INSERT INTO HistorialCtaCte (IdCliente, Fecha, Concepto, Monto, IdProducto, Cantidad) 
+                       VALUES (@id, @fecha, @conc, @monto, @idProd, @cant)";
+
+                var cmd = new SqlCommand(sql, conn);
+
+                cmd.Parameters.AddWithValue("@id", idCliente);
+                cmd.Parameters.AddWithValue("@fecha", FechaHelper.AhoraArgentina()); // Ahora coincide con la 2da columna
+                cmd.Parameters.AddWithValue("@conc", concepto);     // Ahora coincide con la 3ra columna
+                cmd.Parameters.Add("@monto", System.Data.SqlDbType.Decimal).Value = monto; // Coincide con la 4ta
+                cmd.Parameters.AddWithValue("@idProd", idProducto);
+                cmd.Parameters.AddWithValue("@cant", cantidad);
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public void ActualizarSaldoPorPago(int id, decimal monto)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                string sql = "UPDATE ClientesCtaCte SET SaldoActual = SaldoActual - @monto WHERE IdCliente = @id";
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@monto", monto);
+                cmd.Parameters.AddWithValue("@id", id);
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public List<Cliente> ObtenerClientesCtaCte()
+        {
+            List<Cliente> lista = new List<Cliente>();
+            using (var conn = ObtenerConexion())
+            {
+                // Traemos a todos los que están en la tabla de cuenta corriente
+                // Si quieres que solo aparezcan los que deben plata, agrega: WHERE SaldoActual > 0
+                string sql = "SELECT IdCliente, Nombre, Telefono, SaldoActual FROM ClientesCtaCte ORDER BY Nombre ASC";
+
+                SqlCommand cmd = new SqlCommand(sql, conn);
+                conn.Open();
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        lista.Add(new Cliente
+                        {
+                            IdCliente = Convert.ToInt32(reader["IdCliente"]),
+                            NombreCliente = reader["Nombre"].ToString(),
+                            TelefonoCliente = reader["Telefono"]?.ToString(),
+                            SaldoActual = Convert.ToDecimal(reader["SaldoActual"])
+                        });
+                    }
+                }
+            }
+            return lista;
+        }
+
+        public List<Cliente> ObtenerClientesGenerales()
+        {
+            List<Cliente> lista = new List<Cliente>();
+            using (var conn = ObtenerConexion())
+            {
+                // CAMBIO AQUÍ: Nombre -> NombreCliente, Telefono -> TelefonoCliente
+                string sql = "SELECT IdCliente, NombreCliente, TelefonoCliente, DniCliente FROM Clientes ORDER BY NombreCliente ASC";
+
+                SqlCommand cmd = new SqlCommand(sql, conn);
+                conn.Open();
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        lista.Add(new Cliente
+                        {
+                            IdCliente = Convert.ToInt32(reader["IdCliente"]),
+                            NombreCliente = reader["NombreCliente"].ToString(),
+                            TelefonoCliente = reader["TelefonoCliente"]?.ToString(),
+                            DniCliente = reader["DniCliente"]?.ToString() // Agregamos DNI por si lo usás en el modal
+                        });
+                    }
+                }
+            }
+            return lista;
+        }
+
+        public bool VerificarYCerrarCajaVencida()
+        {
+            var cajaAbierta = Cajas
+                .Where(c => c.EstaAbierta)
+                .OrderByDescending(c => c.FechaApertura)
+                .FirstOrDefault();
+
+            if (cajaAbierta != null)
+            {
+                if (cajaAbierta.FechaApertura.Date < DateTime.Today)
+                {
+                    cajaAbierta.EstaAbierta = false;
+                    cajaAbierta.FechaCierre = FechaHelper.AhoraArgentina();
+
+                    Cajas.Update(cajaAbierta);
+                    SaveChanges();
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void RegistrarMovimientoCaja(int idCaja, decimal monto, string concepto, string tipo)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                conn.Open();
+                // Iniciamos una transacción para que se hagan ambas cosas o ninguna
+                using (var trans = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        // 1. Insertar el movimiento
+                        string sqlMov = @"INSERT INTO MovimientosCaja (CajaId, Fecha, Monto, Concepto, Tipo) 
+                                 VALUES (@idCaja, GETDATE(), @monto, @concepto, @tipo)";
+
+                        SqlCommand cmdMov = new SqlCommand(sqlMov, conn, trans);
+                        cmdMov.Parameters.AddWithValue("@idCaja", idCaja);
+                        cmdMov.Parameters.AddWithValue("@monto", monto);
+                        cmdMov.Parameters.AddWithValue("@concepto", concepto);
+                        cmdMov.Parameters.AddWithValue("@tipo", tipo); // "Ingreso" o "Egreso"
+                        cmdMov.ExecuteNonQuery();
+
+                        // 2. Actualizar el MontoEsperado en la tabla Cajas
+                        // Si es Ingreso suma, si es Egreso resta
+                        string operacion = (tipo.ToLower() == "ingreso") ? "+" : "-";
+                        string sqlCaja = $"UPDATE Cajas SET MontoEsperado = MontoEsperado {operacion} @monto WHERE Id = @idCaja";
+
+                        SqlCommand cmdCaja = new SqlCommand(sqlCaja, conn, trans);
+                        cmdCaja.Parameters.AddWithValue("@monto", monto);
+                        cmdCaja.Parameters.AddWithValue("@idCaja", idCaja);
+                        cmdCaja.ExecuteNonQuery();
+
+                        trans.Commit();
+                    }
+                    catch (Exception)
+                    {
+                        trans.Rollback();
+                        throw; // Re-lanzamos el error para que el controlador lo atrape
+                    }
                 }
             }
         }
-    }
-    return lista;
-}
-
-
-public void InsertarGastoCtaCte(int idCliente, decimal total, string vendedor, string detalle, DateTime fecha)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // 1. Usamos @DiaVenta en el SQL para que coincida con el nombre de la columna
-        string sql = @"INSERT INTO Facturas (DiaVenta, MontoVenta, Vendedor, IdCliente, MedioPago, TipoVenta) 
-                       VALUES (@DiaVenta, @total, @vendedor, @idCliente, 'CtaCte', 'Cuenta Corriente')";
-
-        conn.Open();
-        using (var cmd = new SqlCommand(sql, conn))
+        public Cliente ObtenerClienteGeneralPorId(int id)
         {
-            // 2. Aquí usamos @DiaVenta para que coincida con el string de arriba
-            cmd.Parameters.AddWithValue("@DiaVenta", fecha);
-            
-            cmd.Parameters.AddWithValue("@idCliente", idCliente);
-            cmd.Parameters.AddWithValue("@total", total);
-            cmd.Parameters.AddWithValue("@vendedor", (object)vendedor ?? DBNull.Value);
-            
-            cmd.ExecuteNonQuery();
-        }
-
-    }
-}
-
-
-
-
-
-
-// 1. Inserta la factura y devuelve el ID generado para poder meterle los productos después
-public int InsertarFacturaCtaCte(int idCliente, decimal total, string vendedor)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // El SELECT SCOPE_IDENTITY() es CLAVE para que devuelva el nro de factura
-        string sql = @"INSERT INTO Facturas (DiaVenta, MontoVenta, Vendedor, IdCliente, MedioPago, TipoVenta) 
-                       VALUES (GETDATE(), @monto, @vendedor, @idCli, 'CtaCte', 'Cuenta Corriente');
-                       SELECT SCOPE_IDENTITY();"; 
-        
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@monto", total);
-        cmd.Parameters.AddWithValue("@vendedor", vendedor ?? (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("@idCli", idCliente);
-        
-        conn.Open();
-        // Usamos ExecuteScalar para capturar el ID
-        object result = cmd.ExecuteScalar();
-        return (result != null) ? Convert.ToInt32(result) : 0;
-    }
-}
-
-public void InsertarFacturaItem(int idFactura, int idProducto, string nombre, int cantidad, decimal precio)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // Ahora usamos exactamente los nombres de tu SELECT: 
-        // idFactura, idItem, nombreProd, cantidad, precio
-        string sql = @"INSERT INTO facturaitem (idFactura, idItem, nombreProd, cantidad, precio) 
-                       VALUES (@idF, @idI, @nom, @cant, @pre)";
-        
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@idF", idFactura);
-        cmd.Parameters.AddWithValue("@idI", idProducto); // Este es tu idItem
-        cmd.Parameters.AddWithValue("@nom", nombre);
-        cmd.Parameters.AddWithValue("@cant", cantidad);
-        cmd.Parameters.AddWithValue("@pre", precio);
-        
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-
-
-
-
-// 3. Descuenta del stock para que no vendas cosas que no tenés
-public void ActualizarStock(int idProducto, int cantidad)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // Cantidad viene como negativa (ej: -5), por eso sumamos (Stock = Stock + (-5))
-        string sql = "UPDATE Productos SET Stock = Stock + @cant WHERE IdProducto = @id";
-        
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@cant", cantidad);
-        cmd.Parameters.AddWithValue("@id", idProducto);
-        
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}public void RegistrarEnHistorialCtaCte(int idCliente, string concepto, decimal monto, int idProducto, int cantidad)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // Corregimos el orden: IdCliente, Fecha, Concepto, Monto, IdProducto, Cantidad
-        string sql = @"INSERT INTO HistorialCtaCte (IdCliente, Fecha, Concepto, Monto, IdProducto, Cantidad) 
-                       VALUES (@id, @fecha, @conc, @monto, @idProd, @cant)";
-        
-        var cmd = new SqlCommand(sql, conn);
-        
-        cmd.Parameters.AddWithValue("@id", idCliente);
-        cmd.Parameters.AddWithValue("@fecha", DateTime.Now); // Ahora coincide con la 2da columna
-        cmd.Parameters.AddWithValue("@conc", concepto);     // Ahora coincide con la 3ra columna
-        cmd.Parameters.Add("@monto", System.Data.SqlDbType.Decimal).Value = monto; // Coincide con la 4ta
-        cmd.Parameters.AddWithValue("@idProd", idProducto);
-        cmd.Parameters.AddWithValue("@cant", cantidad);
-        
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-
-public void ActualizarSaldoPorPago(int id, decimal monto) {
-    using (var conn = ObtenerConexion()) {
-        string sql = "UPDATE ClientesCtaCte SET SaldoActual = SaldoActual - @monto WHERE IdCliente = @id";
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@monto", monto);
-        cmd.Parameters.AddWithValue("@id", id);
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-
-public List<Cliente> ObtenerClientesCtaCte()
-{
-    List<Cliente> lista = new List<Cliente>();
-    using (var conn = ObtenerConexion())
-    {
-        // Traemos a todos los que están en la tabla de cuenta corriente
-        // Si quieres que solo aparezcan los que deben plata, agrega: WHERE SaldoActual > 0
-        string sql = "SELECT IdCliente, Nombre, Telefono, SaldoActual FROM ClientesCtaCte ORDER BY Nombre ASC";
-        
-        SqlCommand cmd = new SqlCommand(sql, conn);
-        conn.Open();
-        
-        using (var reader = cmd.ExecuteReader())
-        {
-            while (reader.Read())
+            using (var conn = ObtenerConexion())
             {
-                lista.Add(new Cliente
+                // Nombres corregidos: NombreCliente, TelefonoCliente
+                string sql = "SELECT IdCliente, NombreCliente, TelefonoCliente FROM Clientes WHERE IdCliente = @id";
+                SqlCommand cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@id", id);
+                conn.Open();
+
+                using (var reader = cmd.ExecuteReader())
                 {
-                    IdCliente = Convert.ToInt32(reader["IdCliente"]),
-                    NombreCliente = reader["Nombre"].ToString(),
-                    TelefonoCliente = reader["Telefono"]?.ToString(),
-                    SaldoActual = Convert.ToDecimal(reader["SaldoActual"])
-                });
+                    if (reader.Read())
+                    {
+                        return new Cliente
+                        {
+                            IdCliente = Convert.ToInt32(reader["IdCliente"]),
+                            NombreCliente = reader["NombreCliente"].ToString(),
+                            TelefonoCliente = reader["TelefonoCliente"]?.ToString()
+                        };
+                    }
+                }
+            }
+            return null;
+        }
+        public void RegistrarPagoEnHistorial(int idCliente, decimal monto, string medio)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                string sql = "INSERT INTO HistorialCtaCte (IdCliente, Fecha, Concepto, Monto, IdProducto, Cantidad) " +
+                             "VALUES (@id, @fecha, @conc, @monto, 0, 0)";
+
+                var cmd = new SqlCommand(sql, conn);
+
+                // Definimos tipos de datos para evitar errores de conversión
+                cmd.Parameters.Add("@id", System.Data.SqlDbType.Int).Value = idCliente;
+                cmd.Parameters.Add("@fecha", System.Data.SqlDbType.DateTime).Value = FechaHelper.AhoraArgentina();
+                cmd.Parameters.Add("@conc", System.Data.SqlDbType.NVarChar).Value = "PAGO (" + medio.ToUpper() + ")";
+
+                // Forzamos el tipo Decimal para que no lo confunda con texto
+                cmd.Parameters.Add("@monto", System.Data.SqlDbType.Decimal).Value = monto * -1;
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
             }
         }
-    }
-    return lista;
-}
-
-public List<Cliente> ObtenerClientesGenerales()
-{
-    List<Cliente> lista = new List<Cliente>();
-    using (var conn = ObtenerConexion())
-    {
-        // CAMBIO AQUÍ: Nombre -> NombreCliente, Telefono -> TelefonoCliente
-        string sql = "SELECT IdCliente, NombreCliente, TelefonoCliente, DniCliente FROM Clientes ORDER BY NombreCliente ASC";
-        
-        SqlCommand cmd = new SqlCommand(sql, conn);
-        conn.Open();
-        
-        using (var reader = cmd.ExecuteReader())
+        public void InsertarClienteCtaCte(string nombre, string telefono, int idOriginal)
         {
-            while (reader.Read())
+            using (var conn = ObtenerConexion())
             {
-                lista.Add(new Cliente
+                // Agregamos la columna IdClienteOriginal al INSERT
+                string sql = "INSERT INTO ClientesCtaCte (Nombre, Telefono, SaldoActual, IdClienteOriginal) " +
+                             "VALUES (@nom, @tel, 0, @idOrig)";
+
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@nom", nombre);
+                cmd.Parameters.AddWithValue("@tel", (object)telefono ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@idOrig", idOriginal); // El ID de la tabla dbo.clientes
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public Cliente ObtenerClienteCtaCtePorId(int id)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // Agregamos IdClienteOriginal al SELECT
+                string sql = "SELECT IdCliente, Nombre, IdClienteOriginal, SaldoActual FROM ClientesCtaCte WHERE IdCliente = @id";
+                SqlCommand cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@id", id);
+                conn.Open();
+                using (var reader = cmd.ExecuteReader())
                 {
-                    IdCliente = Convert.ToInt32(reader["IdCliente"]),
-                    NombreCliente = reader["NombreCliente"].ToString(),
-                    TelefonoCliente = reader["TelefonoCliente"]?.ToString(),
-                    DniCliente = reader["DniCliente"]?.ToString() // Agregamos DNI por si lo usás en el modal
-                });
+                    if (reader.Read())
+                    {
+                        return new Cliente
+                        {
+                            IdCliente = Convert.ToInt32(reader["IdCliente"]),
+                            NombreCliente = reader["Nombre"].ToString(),
+                            SaldoActual = Convert.ToDecimal(reader["SaldoActual"]),
+                            // LEEMOS EL NUEVO CAMPO:
+                            IdClienteOriginal = reader["IdClienteOriginal"] != DBNull.Value
+                                                ? Convert.ToInt32(reader["IdClienteOriginal"])
+                                                : 0
+                        };
+                    }
+                }
             }
+            return null;
         }
-    }
-    return lista;
-}
-
-public bool VerificarYCerrarCajaVencida()
-{
-    var cajaAbierta = Cajas
-        .Where(c => c.EstaAbierta)
-        .OrderByDescending(c => c.FechaApertura)
-        .FirstOrDefault();
-
-    if (cajaAbierta != null)
-    {
-        if (cajaAbierta.FechaApertura.Date < DateTime.Today)
+        public void ActualizarSaldoClienteCtaCte(int idCliente, decimal monto)
         {
-            cajaAbierta.EstaAbierta = false;
-            cajaAbierta.FechaCierre =FechaHelper.AhoraArgentina();
-
-            Cajas.Update(cajaAbierta);
-            SaveChanges();
-
-            return true;
+            using (var conn = ObtenerConexion())
+            {
+                string sql = "UPDATE ClientesCtaCte SET SaldoActual = SaldoActual + @monto WHERE IdCliente = @id";
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@monto", monto); // SQL maneja la conversión de la coma/punto solo
+                cmd.Parameters.AddWithValue("@id", idCliente);
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
         }
-    }
 
-    return false;
-}
-
-public void RegistrarMovimientoCaja(int idCaja, decimal monto, string concepto, string tipo)
-{
-    using (var conn = ObtenerConexion())
-    {
-        conn.Open();
-        // Iniciamos una transacción para que se hagan ambas cosas o ninguna
-        using (var trans = conn.BeginTransaction())
+        public void SobreescribirSaldoCliente(int idCliente, decimal nuevoTotal)
         {
-            try
+            using (var conn = ObtenerConexion())
             {
-                // 1. Insertar el movimiento
-                string sqlMov = @"INSERT INTO MovimientosCaja (CajaId, Fecha, Monto, Concepto, Tipo) 
-                                 VALUES (@idCaja, GETDATE(), @monto, @concepto, @tipo)";
-                
-                SqlCommand cmdMov = new SqlCommand(sqlMov, conn, trans);
-                cmdMov.Parameters.AddWithValue("@idCaja", idCaja);
-                cmdMov.Parameters.AddWithValue("@monto", monto);
-                cmdMov.Parameters.AddWithValue("@concepto", concepto);
-                cmdMov.Parameters.AddWithValue("@tipo", tipo); // "Ingreso" o "Egreso"
-                cmdMov.ExecuteNonQuery();
-
-                // 2. Actualizar el MontoEsperado en la tabla Cajas
-                // Si es Ingreso suma, si es Egreso resta
-                string operacion = (tipo.ToLower() == "ingreso") ? "+" : "-";
-                string sqlCaja = $"UPDATE Cajas SET MontoEsperado = MontoEsperado {operacion} @monto WHERE Id = @idCaja";
-                
-                SqlCommand cmdCaja = new SqlCommand(sqlCaja, conn, trans);
-                cmdCaja.Parameters.AddWithValue("@monto", monto);
-                cmdCaja.Parameters.AddWithValue("@idCaja", idCaja);
-                cmdCaja.ExecuteNonQuery();
-
-                trans.Commit();
-            }
-            catch (Exception)
-            {
-                trans.Rollback();
-                throw; // Re-lanzamos el error para que el controlador lo atrape
+                string sql = "UPDATE ClientesCtaCte SET SaldoActual = @nuevoTotal WHERE IdCliente = @id";
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@nuevoTotal", nuevoTotal);
+                cmd.Parameters.AddWithValue("@id", idCliente);
+                conn.Open();
+                cmd.ExecuteNonQuery();
             }
         }
-    }
-}
-public Cliente ObtenerClienteGeneralPorId(int id)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // Nombres corregidos: NombreCliente, TelefonoCliente
-        string sql = "SELECT IdCliente, NombreCliente, TelefonoCliente FROM Clientes WHERE IdCliente = @id";
-        SqlCommand cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", id);
-        conn.Open();
-        
-        using (var reader = cmd.ExecuteReader())
+
+
+        public List<MovimientoCtaCte> ObtenerHistorialCtaCte(int idCliente)
         {
-            if (reader.Read())
+            List<MovimientoCtaCte> lista = new List<MovimientoCtaCte>();
+            using (var conn = ObtenerConexion())
             {
-                return new Cliente
-                {
-                    IdCliente = Convert.ToInt32(reader["IdCliente"]),
-                    NombreCliente = reader["NombreCliente"].ToString(),
-                    TelefonoCliente = reader["TelefonoCliente"]?.ToString()
-                };
-            }
-        }
-    }
-    return null;
-}
-public void RegistrarPagoEnHistorial(int idCliente, decimal monto, string medio) 
-{
-    using (var conn = ObtenerConexion()) 
-    {
-        string sql = "INSERT INTO HistorialCtaCte (IdCliente, Fecha, Concepto, Monto, IdProducto, Cantidad) " +
-                     "VALUES (@id, @fecha, @conc, @monto, 0, 0)";
-        
-        var cmd = new SqlCommand(sql, conn);
-        
-        // Definimos tipos de datos para evitar errores de conversión
-        cmd.Parameters.Add("@id", System.Data.SqlDbType.Int).Value = idCliente;
-        cmd.Parameters.Add("@fecha", System.Data.SqlDbType.DateTime).Value =FechaHelper.AhoraArgentina();
-        cmd.Parameters.Add("@conc", System.Data.SqlDbType.NVarChar).Value = "PAGO (" + medio.ToUpper() + ")";
-        
-        // Forzamos el tipo Decimal para que no lo confunda con texto
-        cmd.Parameters.Add("@monto", System.Data.SqlDbType.Decimal).Value = monto * -1;
-
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-public void InsertarClienteCtaCte(string nombre, string telefono, int idOriginal)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // Agregamos la columna IdClienteOriginal al INSERT
-        string sql = "INSERT INTO ClientesCtaCte (Nombre, Telefono, SaldoActual, IdClienteOriginal) " +
-                     "VALUES (@nom, @tel, 0, @idOrig)";
-        
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@nom", nombre);
-        cmd.Parameters.AddWithValue("@tel", (object)telefono ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@idOrig", idOriginal); // El ID de la tabla dbo.clientes
-        
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-
-public Cliente ObtenerClienteCtaCtePorId(int id)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // Agregamos IdClienteOriginal al SELECT
-        string sql = "SELECT IdCliente, Nombre, IdClienteOriginal, SaldoActual FROM ClientesCtaCte WHERE IdCliente = @id";
-        SqlCommand cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", id);
-        conn.Open();
-        using (var reader = cmd.ExecuteReader())
-        {
-            if (reader.Read())
-            {
-                return new Cliente {
-                    IdCliente = Convert.ToInt32(reader["IdCliente"]),
-                    NombreCliente = reader["Nombre"].ToString(),
-                    SaldoActual = Convert.ToDecimal(reader["SaldoActual"]),
-                    // LEEMOS EL NUEVO CAMPO:
-                    IdClienteOriginal = reader["IdClienteOriginal"] != DBNull.Value 
-                                        ? Convert.ToInt32(reader["IdClienteOriginal"]) 
-                                        : 0 
-                };
-            }
-        }
-    }
-    return null;
-}public void ActualizarSaldoClienteCtaCte(int idCliente, decimal monto)
-{
-    using (var conn = ObtenerConexion())
-    {
-        string sql = "UPDATE ClientesCtaCte SET SaldoActual = SaldoActual + @monto WHERE IdCliente = @id";
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@monto", monto); // SQL maneja la conversión de la coma/punto solo
-        cmd.Parameters.AddWithValue("@id", idCliente);
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-
-public void SobreescribirSaldoCliente(int idCliente, decimal nuevoTotal)
-{
-    using (var conn = ObtenerConexion())
-    {
-        string sql = "UPDATE ClientesCtaCte SET SaldoActual = @nuevoTotal WHERE IdCliente = @id";
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@nuevoTotal", nuevoTotal);
-        cmd.Parameters.AddWithValue("@id", idCliente);
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-
-
-public List<MovimientoCtaCte> ObtenerHistorialCtaCte(int idCliente)
-{
-    List<MovimientoCtaCte> lista = new List<MovimientoCtaCte>();
-    using (var conn = ObtenerConexion())
-    {
-        // Agregamos IdProducto y Cantidad a la consulta SQL
-        string sql = @"SELECT Id, Fecha, Concepto, Monto, SaldoResultante, IdProducto, Cantidad 
+                // Agregamos IdProducto y Cantidad a la consulta SQL
+                string sql = @"SELECT Id, Fecha, Concepto, Monto, SaldoResultante, IdProducto, Cantidad 
                        FROM HistorialCtaCte 
                        WHERE IdCliente = @id 
                        ORDER BY Fecha DESC";
-        
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", idCliente);
-        conn.Open();
-        using (var reader = cmd.ExecuteReader())
-        {
-            while (reader.Read())
-            {
-                lista.Add(new MovimientoCtaCte {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    Fecha = Convert.ToDateTime(reader["Fecha"]),
-                    Concepto = reader["Concepto"]?.ToString() ?? "",
-                    
-                    // Manejo seguro de decimales (si es NULL pone 0)
-                    Monto = reader["Monto"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["Monto"]),
-                    SaldoResultante = reader["SaldoResultante"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["SaldoResultante"]),
-                    
-                    // Columnas necesarias para el recálculo de precios
-                    IdProducto = reader["IdProducto"] == DBNull.Value ? 0 : Convert.ToInt32(reader["IdProducto"]),
-                    Cantidad = reader["Cantidad"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Cantidad"])
-                });
-            }
-        }
-    }
-    return lista;
-}
 
-// Método para la Libreta
-public void RegistrarMovimientoCtaCte(int idCliente, decimal monto, string concepto, decimal saldoRes)
-{
-    using (var conn = ObtenerConexion())
-    {
-        string sql = "INSERT INTO HistorialCtaCte (IdCliente, Fecha, Concepto, Monto, SaldoResultante) VALUES (@id, GETDATE(), @con, @mon, @sal)";
-        SqlCommand cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", idCliente);
-        cmd.Parameters.AddWithValue("@con", concepto);
-        cmd.Parameters.AddWithValue("@mon", monto);
-        cmd.Parameters.AddWithValue("@sal", saldoRes);
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-// MÉTODO PARA LA CAJA (Corregido con hora local y parámetros seguros)
-public void RegistrarMovimientoEnCajaReal(int idCaja, string concepto, decimal monto, int tipo, string usuario, string medioPago)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // 1. Reemplazamos GETDATE() por @fecha
-        string sql = @"INSERT INTO MovimientosCaja (CajaId, Fecha, Concepto, Monto, Tipo, Usuario, MedioPago) 
-                       VALUES (@cajaId, @fecha, @concepto, @monto, @tipo, @usuario, @medioPago)";
-        
-        SqlCommand cmd = new SqlCommand(sql, conn);
-        
-        // 2. Mapeo de parámetros
-        cmd.Parameters.AddWithValue("@cajaId", idCaja);
-        
-        // Enviamos la hora de C# (tu PC) en lugar de la del servidor SQL
-        cmd.Parameters.AddWithValue("@fecha", DateTime.Now); 
-        
-        cmd.Parameters.AddWithValue("@concepto", concepto);
-        
-        // Forzamos el tipo decimal para el monto por seguridad
-        cmd.Parameters.Add("@monto", System.Data.SqlDbType.Decimal).Value = monto;
-        
-        cmd.Parameters.AddWithValue("@tipo", tipo); // 0 para Ingreso, 1 para Egreso
-        cmd.Parameters.AddWithValue("@usuario", usuario);
-        cmd.Parameters.AddWithValue("@medioPago", medioPago);
-        
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-public void RestarStockProducto(int idProducto, int cantidad)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // Cambié 'Stock' por 'StockActual'. 
-        // Si en tu SQL ves que se llama distinto, poné ese nombre aquí:
-        string sql = "UPDATE Productos SET StockActual = StockActual - @cant WHERE IdProducto = @id";
-        
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@cant", cantidad);
-        cmd.Parameters.AddWithValue("@id", idProducto);
-        
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}
-
-public dynamic ObtenerProductoPorCodigo(string codigo)
-{
-    using (var conn = ObtenerConexion())
-    {
-        // Ajustá 'Productos' y 'Codigo' a los nombres reales de tu tabla
-        string sql = "SELECT IdProducto, Nombre, PrecioVenta FROM Productos WHERE Codigo = @cod";
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@cod", codigo);
-        conn.Open();
-
-        using (var reader = cmd.ExecuteReader())
-        {
-            if (reader.Read())
-            {
-                return new
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@id", idCliente);
+                conn.Open();
+                using (var reader = cmd.ExecuteReader())
                 {
-                    IdProducto = (int)reader["IdProducto"],
-                    Nombre = reader["Nombre"].ToString(),
-                    PrecioVenta = (decimal)reader["PrecioVenta"]
-                };
+                    while (reader.Read())
+                    {
+                        lista.Add(new MovimientoCtaCte
+                        {
+                            Id = Convert.ToInt32(reader["Id"]),
+                            Fecha = Convert.ToDateTime(reader["Fecha"]),
+                            Concepto = reader["Concepto"]?.ToString() ?? "",
+
+                            // Manejo seguro de decimales (si es NULL pone 0)
+                            Monto = reader["Monto"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["Monto"]),
+                            SaldoResultante = reader["SaldoResultante"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["SaldoResultante"]),
+
+                            // Columnas necesarias para el recálculo de precios
+                            IdProducto = reader["IdProducto"] == DBNull.Value ? 0 : Convert.ToInt32(reader["IdProducto"]),
+                            Cantidad = reader["Cantidad"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Cantidad"])
+                        });
+                    }
+                }
+            }
+            return lista;
+        }
+
+        // Método para la Libreta
+        public void RegistrarMovimientoCtaCte(int idCliente, decimal monto, string concepto, decimal saldoRes)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                string sql = "INSERT INTO HistorialCtaCte (IdCliente, Fecha, Concepto, Monto, SaldoResultante) VALUES (@id, GETDATE(), @con, @mon, @sal)";
+                SqlCommand cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@id", idCliente);
+                cmd.Parameters.AddWithValue("@con", concepto);
+                cmd.Parameters.AddWithValue("@mon", monto);
+                cmd.Parameters.AddWithValue("@sal", saldoRes);
+                conn.Open();
+                cmd.ExecuteNonQuery();
             }
         }
-    }
-    return null;
-}
+        // MÉTODO PARA LA CAJA (Corregido con hora local y parámetros seguros)
+        public void RegistrarMovimientoEnCajaReal(int idCaja, string concepto, decimal monto, int tipo, string usuario, string medioPago)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // 1. Reemplazamos GETDATE() por @fecha
+                string sql = @"INSERT INTO MovimientosCaja (CajaId, Fecha, Concepto, Monto, Tipo, Usuario, MedioPago) 
+                       VALUES (@cajaId, @fecha, @concepto, @monto, @tipo, @usuario, @medioPago)";
 
-// Método para que el saldo del cliente suba en la tabla principal
-public void ActualizarSaldoCliente(int idCliente, decimal monto)
-{
-    using (var conn = ObtenerConexion())
-    {
-        string sql = "UPDATE Clientes SET SaldoActual = SaldoActual + @monto WHERE IdCliente = @id";
-        var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@monto", monto);
-        cmd.Parameters.AddWithValue("@id", idCliente);
-        conn.Open();
-        cmd.ExecuteNonQuery();
-    }
-}        public Cliente ObtenerClientePorId(int id)
+                SqlCommand cmd = new SqlCommand(sql, conn);
+
+                // 2. Mapeo de parámetros
+                cmd.Parameters.AddWithValue("@cajaId", idCaja);
+
+                // Enviamos la hora de C# (tu PC) en lugar de la del servidor SQL
+                cmd.Parameters.AddWithValue("@fecha", FechaHelper.AhoraArgentina());
+
+                cmd.Parameters.AddWithValue("@concepto", concepto);
+
+                // Forzamos el tipo decimal para el monto por seguridad
+                cmd.Parameters.Add("@monto", System.Data.SqlDbType.Decimal).Value = monto;
+
+                cmd.Parameters.AddWithValue("@tipo", tipo); // 0 para Ingreso, 1 para Egreso
+                cmd.Parameters.AddWithValue("@usuario", usuario);
+                cmd.Parameters.AddWithValue("@medioPago", medioPago);
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+        public void RestarStockProducto(int idProducto, int cantidad)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // Cambié 'Stock' por 'StockActual'. 
+                // Si en tu SQL ves que se llama distinto, poné ese nombre aquí:
+                string sql = "UPDATE Productos SET StockActual = StockActual - @cant WHERE IdProducto = @id";
+
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@cant", cantidad);
+                cmd.Parameters.AddWithValue("@id", idProducto);
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public dynamic ObtenerProductoPorCodigo(string codigo)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                // Ajustá 'Productos' y 'Codigo' a los nombres reales de tu tabla
+                string sql = "SELECT IdProducto, Nombre, PrecioVenta FROM Productos WHERE Codigo = @cod";
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@cod", codigo);
+                conn.Open();
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        return new
+                        {
+                            IdProducto = (int)reader["IdProducto"],
+                            Nombre = reader["Nombre"].ToString(),
+                            PrecioVenta = (decimal)reader["PrecioVenta"]
+                        };
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Método para que el saldo del cliente suba en la tabla principal
+        public void ActualizarSaldoCliente(int idCliente, decimal monto)
+        {
+            using (var conn = ObtenerConexion())
+            {
+                string sql = "UPDATE Clientes SET SaldoActual = SaldoActual + @monto WHERE IdCliente = @id";
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@monto", monto);
+                cmd.Parameters.AddWithValue("@id", idCliente);
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+        public Cliente ObtenerClientePorId(int id)
         {
             Cliente cliente = null;
             using (var conn = new SqlConnection(_connectionString))
@@ -984,13 +991,13 @@ public void ActualizarSaldoCliente(int idCliente, decimal monto)
             }
         }
 
-// Asegurate de que el nombre aquí sea "Presupuesto" (singular)
-public void ActualizarTelefonoPresupuesto(int id, string nuevoTelefono)
-{
-    // Ejecutamos una sentencia SQL directa para no pasar por el validador de llaves de EF
-    string sql = "UPDATE presupuesto SET telefonoCliente = @p0 WHERE idPresupuesto = @p1";
-    this.Database.ExecuteSqlRaw(sql, nuevoTelefono, id);
-}
+        // Asegurate de que el nombre aquí sea "Presupuesto" (singular)
+        public void ActualizarTelefonoPresupuesto(int id, string nuevoTelefono)
+        {
+            // Ejecutamos una sentencia SQL directa para no pasar por el validador de llaves de EF
+            string sql = "UPDATE presupuesto SET telefonoCliente = @p0 WHERE idPresupuesto = @p1";
+            this.Database.ExecuteSqlRaw(sql, nuevoTelefono, id);
+        }
         // 1. VENTAS POR FECHA (DIARIO)
         public List<object> ObtenerTotalVentasPorFecha(DateTime desde, DateTime hasta)
         {
@@ -1098,11 +1105,20 @@ public void ActualizarTelefonoPresupuesto(int id, string nuevoTelefono)
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                var query = "SELECT IdUsuario, Usuario, NombreYApellido, Rol, Contraseña, FotoPerfil FROM Usuarios WHERE Usuario = @nombre";
+
+                var query = @"
+            SELECT 
+                idUsuario, 
+                usuario, 
+                nombreyApellido, 
+                rol, 
+                fotoPerfil,
+                passwordHash
+            FROM usuarios 
+            WHERE usuario = @nombre";
 
                 using (var command = new SqlCommand(query, connection))
                 {
-                    // Nota: Se recomienda usar Add para tipado más estricto, pero AddWithValue funciona
                     command.Parameters.AddWithValue("@nombre", nombreUsuario);
 
                     using (var reader = command.ExecuteReader())
@@ -1111,24 +1127,22 @@ public void ActualizarTelefonoPresupuesto(int id, string nuevoTelefono)
                         {
                             u = new Usuario
                             {
-                                // ❌ ANTES (Error): IdUsuario = reader.GetInt32("IdUsuario"),
-                                // ✅ AHORA: Usamos GetOrdinal para obtener el índice y pasarlo a GetInt32
-                                IdUsuario = reader.GetInt32(reader.GetOrdinal("IdUsuario")),
-
-                                // ✅ AHORA: Usamos GetOrdinal para los strings también, aunque hay otra forma
-                                UsuarioNombre = reader.GetString(reader.GetOrdinal("Usuario")),
-                                NombreyApellido = reader.GetString(reader.GetOrdinal("NombreYApellido")),
-                                Rol = reader.GetString(reader.GetOrdinal("Rol")),
-                                Contraseña = reader.GetString(reader.GetOrdinal("Contraseña")),
-
-                                // Mantenemos la lógica de verificación de nulos (que es correcta aquí)
-                                FotoPerfil = reader["FotoPerfil"] != DBNull.Value ? reader.GetString(reader.GetOrdinal("FotoPerfil")) : null
+                                IdUsuario = Convert.ToInt32(reader["idUsuario"]),
+                                UsuarioNombre = reader["usuario"].ToString(),
+                                NombreyApellido = reader["nombreyApellido"].ToString(),
+                                Rol = reader["rol"].ToString(),
+                                FotoPerfil = reader["fotoPerfil"] != DBNull.Value
+                                    ? reader["fotoPerfil"].ToString()
+                                    : "/imagenes/usuarios/default.png",
+                                PasswordHash = reader["passwordHash"] != DBNull.Value
+                                    ? reader["passwordHash"].ToString()
+                                    : null
                             };
-                            Console.WriteLine("Ruta de la maldita foto: " + u.FotoPerfil);
                         }
                     }
                 }
             }
+
             return u;
         }
 
@@ -1150,63 +1164,98 @@ public void ActualizarTelefonoPresupuesto(int id, string nuevoTelefono)
         }
 
 
-        public Usuario ObtenerUsuarioPorId(int idUsuario)
+       public Usuario ObtenerUsuarioPorId(int idUsuario)
+{
+    Usuario usuario = null;
+
+    using (var con = ObtenerConexion())
+    {
+        con.Open();
+
+        var cmd = new SqlCommand(@"
+            SELECT 
+                idUsuario, 
+                usuario, 
+                rol, 
+                nombreyApellido, 
+                fotoPerfil,
+                passwordHash
+            FROM usuarios 
+            WHERE idUsuario = @idUsuario", con);
+
+        cmd.Parameters.AddWithValue("@idUsuario", idUsuario);
+
+        var reader = cmd.ExecuteReader();
+
+        if (reader.Read())
         {
-            Usuario usuario = null;
-            using (var con = ObtenerConexion())
+            usuario = new Usuario
             {
-                con.Open();
-                var cmd = new SqlCommand("SELECT * FROM usuarios WHERE idUsuario = @idUsuario", con);
-                cmd.Parameters.AddWithValue("@idUsuario", idUsuario);
-                var reader = cmd.ExecuteReader();
-                if (reader.Read())
-                {
-                    usuario = new Usuario
-                    {
-                        IdUsuario = Convert.ToInt32(reader["idUsuario"]),
-                        UsuarioNombre = reader["Usuario"].ToString(),
-                        Contraseña = reader["contraseña"].ToString(),
-                        Rol = reader["rol"].ToString(),
-                        NombreyApellido = reader["nombreyApellido"].ToString(),
-                        FotoPerfil = reader["FotoPerfil"] != DBNull.Value ? reader.GetString(reader.GetOrdinal("FotoPerfil")) : null
-                    };
-                }
-            }
-            return usuario;
+                IdUsuario = Convert.ToInt32(reader["idUsuario"]),
+                UsuarioNombre = reader["usuario"].ToString(),
+                Rol = reader["rol"].ToString(),
+                NombreyApellido = reader["nombreyApellido"].ToString(),
+                FotoPerfil = reader["fotoPerfil"] != DBNull.Value
+                    ? reader["fotoPerfil"].ToString()
+                    : "/imagenes/usuarios/default.png",
+                PasswordHash = reader["passwordHash"] != DBNull.Value
+                    ? reader["passwordHash"].ToString()
+                    : null
+            };
         }
+    }
 
-        public void AgregarUsuario(Usuario u)
-        {
-            using (var con = ObtenerConexion())
-            {
-                con.Open();
-                var cmd = new SqlCommand("INSERT INTO usuarios (Usuario, contraseña, rol, nombreyApellido, FotoPerfil) VALUES (@nombre,  @contraseña, @rol, @nombreyApellido, @FotoPerfil)", con);
-                cmd.Parameters.AddWithValue("@nombre", u.UsuarioNombre);
-                cmd.Parameters.AddWithValue("@contraseña", u.Contraseña);
-                cmd.Parameters.AddWithValue("@rol", u.Rol);
-                cmd.Parameters.AddWithValue("@nombreyApellido", u.NombreyApellido);
-                cmd.Parameters.AddWithValue("@FotoPerfil", u.FotoPerfil);
-                cmd.ExecuteNonQuery();
-            }
-        }
+    return usuario;
+}
 
-        public void ActualizarUsuario(Usuario u)
-        {
-            using (var con = ObtenerConexion())
-            {
-                con.Open();
-                var cmd = new SqlCommand("UPDATE usuarios SET Usuario=@nombre, contraseña=@contraseña, rol=@rol, nombreyApellido=@nombreyApellido, FotoPerfil=@FotoPerfil WHERE idUsuario=@idUsuario", con);
+      public void AgregarUsuario(Usuario u)
+{
+    using (var con = ObtenerConexion())
+    {
+        con.Open();
 
-                cmd.Parameters.AddWithValue("@idUsuario", u.IdUsuario);
-                cmd.Parameters.AddWithValue("@nombre", u.UsuarioNombre);
-                cmd.Parameters.AddWithValue("@contraseña", u.Contraseña);
-                cmd.Parameters.AddWithValue("@rol", u.Rol);
-                cmd.Parameters.AddWithValue("@nombreyApellido", u.NombreyApellido);
-                cmd.Parameters.AddWithValue("@FotoPerfil", u.FotoPerfil);
-                cmd.ExecuteNonQuery();
-            }
-        }
+        var cmd = new SqlCommand(@"
+            INSERT INTO usuarios 
+            (usuario, passwordHash, rol, nombreyApellido, fotoPerfil) 
+            VALUES 
+            (@usuario, @passwordHash, @rol, @nombreyApellido, @fotoPerfil)", con);
 
+        cmd.Parameters.AddWithValue("@usuario", u.UsuarioNombre);
+        cmd.Parameters.AddWithValue("@passwordHash", (object?)u.PasswordHash ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@rol", u.Rol);
+        cmd.Parameters.AddWithValue("@nombreyApellido", u.NombreyApellido);
+        cmd.Parameters.AddWithValue("@fotoPerfil", (object?)u.FotoPerfil ?? DBNull.Value);
+
+        cmd.ExecuteNonQuery();
+    }
+}
+
+     public void ActualizarUsuario(Usuario u)
+{
+    using (var con = ObtenerConexion())
+    {
+        con.Open();
+
+        var cmd = new SqlCommand(@"
+            UPDATE usuarios 
+            SET 
+                usuario = @usuario, 
+                passwordHash = @passwordHash, 
+                rol = @rol, 
+                nombreyApellido = @nombreyApellido, 
+                fotoPerfil = @fotoPerfil
+            WHERE idUsuario = @idUsuario", con);
+
+        cmd.Parameters.AddWithValue("@idUsuario", u.IdUsuario);
+        cmd.Parameters.AddWithValue("@usuario", u.UsuarioNombre);
+        cmd.Parameters.AddWithValue("@passwordHash", (object?)u.PasswordHash ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@rol", u.Rol);
+        cmd.Parameters.AddWithValue("@nombreyApellido", u.NombreyApellido);
+        cmd.Parameters.AddWithValue("@fotoPerfil", (object?)u.FotoPerfil ?? DBNull.Value);
+
+        cmd.ExecuteNonQuery();
+    }
+}
         public void EliminarUsuario(int idUsuario)
         {
             using (var con = ObtenerConexion())
@@ -1220,41 +1269,60 @@ public void ActualizarTelefonoPresupuesto(int id, string nuevoTelefono)
 
 
 
-        public void ActualizarClave(Usuario u)
+      public void ActualizarClave(Usuario u)
+{
+    using (var connection = new SqlConnection(_connectionString))
+    {
+        connection.Open();
+
+        var query = @"
+            UPDATE usuarios 
+            SET passwordHash = @passwordHash 
+            WHERE idUsuario = @idUsuario";
+
+        using (var command = new SqlCommand(query, connection))
         {
-            using (var connection = new SqlConnection(_connectionString))
-            {
-                connection.Open();
-                var query = "UPDATE Usuarios SET contraseña = @contraseña WHERE IdUsuario = @id";
-                using (var command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@contraseña", u.Contraseña);
-                    command.Parameters.AddWithValue("@id", u.IdUsuario);
-                    command.ExecuteNonQuery();
-                }
-            }
+            command.Parameters.AddWithValue("@passwordHash", (object?)u.PasswordHash ?? DBNull.Value);
+            command.Parameters.AddWithValue("@idUsuario", u.IdUsuario);
+            command.ExecuteNonQuery();
         }
-
-
+    }
+}
 
         public List<Usuario> ObtenerUsuarios()
         {
             List<Usuario> lista = new List<Usuario>();
+
             using (var con = ObtenerConexion())
             {
                 con.Open();
-                var cmd = new SqlCommand("SELECT idUsuario, Usuario, contraseña, rol, nombreyApellido, FotoPerfil FROM Usuarios", con);
+
+                var cmd = new SqlCommand(@"
+            SELECT 
+                idUsuario, 
+                usuario, 
+                rol, 
+                nombreyApellido, 
+                fotoPerfil,
+                passwordHash
+            FROM usuarios", con);
+
                 var reader = cmd.ExecuteReader();
+
                 while (reader.Read())
                 {
                     lista.Add(new Usuario
                     {
                         IdUsuario = Convert.ToInt32(reader["idUsuario"]),
-                        UsuarioNombre = reader["Usuario"].ToString(),
-                        Contraseña = reader["contraseña"].ToString(),
+                        UsuarioNombre = reader["usuario"].ToString(),
                         Rol = reader["rol"].ToString(),
                         NombreyApellido = reader["nombreyApellido"].ToString(),
-                        FotoPerfil = !reader.IsDBNull(reader.GetOrdinal("FotoPerfil")) ? reader["FotoPerfil"].ToString() : null
+                        FotoPerfil = reader["fotoPerfil"] != DBNull.Value
+                            ? reader["fotoPerfil"].ToString()
+                            : "/imagenes/usuarios/default.png",
+                        PasswordHash = reader["passwordHash"] != DBNull.Value
+                            ? reader["passwordHash"].ToString()
+                            : null
                     });
                 }
             }
@@ -1276,35 +1344,7 @@ public void ActualizarTelefonoPresupuesto(int id, string nuevoTelefono)
 
         public Usuario BuscarUsuario(string usuario, string contraseña)
         {
-            Usuario encontrado = null;
-            using (SqlConnection conn = new SqlConnection(_connectionString))
-            {
-                conn.Open();
-
-                string sql = "SELECT * FROM usuarios WHERE usuario = @usuario AND contraseña = @contraseña";
-
-                using (SqlCommand cmd = new SqlCommand(sql, conn))
-                {
-                    cmd.Parameters.AddWithValue("@usuario", usuario);
-                    cmd.Parameters.AddWithValue("@contraseña", contraseña);
-
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            encontrado = new Usuario
-                            {
-                                IdUsuario = reader.GetInt32(reader.GetOrdinal("idUsuario")),
-                                UsuarioNombre = reader.GetString(reader.GetOrdinal("Usuario")),
-                                Rol = reader.GetString(reader.GetOrdinal("rol")),
-                                NombreyApellido = reader.GetString(reader.GetOrdinal("nombreyApellido")),
-                                FotoPerfil = reader.GetString(reader.GetOrdinal("fotoPerfil")),
-                            };
-                        }
-                    }
-                }
-            }
-            return encontrado;
+            return ObtenerUsuarioPorNombre(usuario);
         }
 
         public void EditarUsuario(Usuario usuario)
@@ -1591,177 +1631,177 @@ public void ActualizarTelefonoPresupuesto(int id, string nuevoTelefono)
         }
 
         //------------------- VENTAS --------------------
-    public (bool success, int idFactura, string error) RegistrarVenta(VentaCompleta venta)
-{
-    Console.WriteLine("🚀 RegistrarVenta iniciado.");
-    using (var conn = ObtenerConexion())
-    {
-        conn.Open();
-
-        using (var transaction = conn.BeginTransaction())
+        public (bool success, int idFactura, string error) RegistrarVenta(VentaCompleta venta)
         {
-            try
+            Console.WriteLine("🚀 RegistrarVenta iniciado.");
+            using (var conn = ObtenerConexion())
             {
-                int idFactura = 0;
+                conn.Open();
 
-                // 1. DETERMINAR EL ESTADO DE LA FACTURA
-                bool esCtaCte = venta.MedioPago.Equals("CtaCte", StringComparison.OrdinalIgnoreCase) || 
-                               venta.MedioPago.Equals("Cuenta Corriente", StringComparison.OrdinalIgnoreCase);
-                
-                string estadoInicial = esCtaCte ? "Pendiente" : "Cobrada";
+                using (var transaction = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        int idFactura = 0;
 
-                // 2. INSERTAR FACTURA (Agregamos la columna 'descuento')
-                string insertFactura = @"
+                        // 1. DETERMINAR EL ESTADO DE LA FACTURA
+                        bool esCtaCte = venta.MedioPago.Equals("CtaCte", StringComparison.OrdinalIgnoreCase) ||
+                                       venta.MedioPago.Equals("Cuenta Corriente", StringComparison.OrdinalIgnoreCase);
+
+                        string estadoInicial = esCtaCte ? "Pendiente" : "Cobrada";
+
+                        // 2. INSERTAR FACTURA (Agregamos la columna 'descuento')
+                        string insertFactura = @"
                     INSERT INTO facturas (diaVenta, montoVenta, vendedor, idCliente, medioPago, tipoVenta, estado, descuento)
                     VALUES (@diaVenta, @montoVenta, @vendedor, @idCliente, @medioPago, @tipoVenta, @estado, @descuento);
                     SELECT SCOPE_IDENTITY();";
 
-                using (var cmdInsert = new SqlCommand(insertFactura, conn, transaction))
-                {
-                    cmdInsert.Parameters.AddWithValue("@diaVenta", DateTime.Now);
-                    cmdInsert.Parameters.AddWithValue("@montoVenta", venta.MontoVenta);
-                    cmdInsert.Parameters.AddWithValue("@vendedor", venta.Vendedor ?? (object)DBNull.Value);
-                    cmdInsert.Parameters.AddWithValue("@idCliente", venta.IdCliente);
-                    cmdInsert.Parameters.AddWithValue("@medioPago", venta.MedioPago);
-                    cmdInsert.Parameters.AddWithValue("@tipoVenta", venta.TipoVenta);
-                    cmdInsert.Parameters.AddWithValue("@estado", estadoInicial);
-                    
-                    // Manejo del descuento: si es 0 o nulo, grabamos DBNull
-                    cmdInsert.Parameters.AddWithValue("@descuento", (venta.Descuento.HasValue && venta.Descuento > 0) 
-                        ? (object)venta.Descuento.Value 
-                        : DBNull.Value);
+                        using (var cmdInsert = new SqlCommand(insertFactura, conn, transaction))
+                        {
+                            cmdInsert.Parameters.AddWithValue("@diaVenta", FechaHelper.AhoraArgentina());
+                            cmdInsert.Parameters.AddWithValue("@montoVenta", venta.MontoVenta);
+                            cmdInsert.Parameters.AddWithValue("@vendedor", venta.Vendedor ?? (object)DBNull.Value);
+                            cmdInsert.Parameters.AddWithValue("@idCliente", venta.IdCliente);
+                            cmdInsert.Parameters.AddWithValue("@medioPago", venta.MedioPago);
+                            cmdInsert.Parameters.AddWithValue("@tipoVenta", venta.TipoVenta);
+                            cmdInsert.Parameters.AddWithValue("@estado", estadoInicial);
 
-                    idFactura = Convert.ToInt32(cmdInsert.ExecuteScalar());
-                }
+                            // Manejo del descuento: si es 0 o nulo, grabamos DBNull
+                            cmdInsert.Parameters.AddWithValue("@descuento", (venta.Descuento.HasValue && venta.Descuento > 0)
+                                ? (object)venta.Descuento.Value
+                                : DBNull.Value);
 
-                // 3. INSERTAR ITEMS Y ACTUALIZAR STOCK
-                foreach (var item in venta.Items)
-                {
-                    string insertItem = @"
+                            idFactura = Convert.ToInt32(cmdInsert.ExecuteScalar());
+                        }
+
+                        // 3. INSERTAR ITEMS Y ACTUALIZAR STOCK
+                        foreach (var item in venta.Items)
+                        {
+                            string insertItem = @"
                         INSERT INTO facturaitem (idFactura, idItem, nombreProd, cantidad, precio)
                         VALUES (@idFactura, @idItem, @nombreProd, @cantidad, @precio);";
 
-                    using (var cmdItem = new SqlCommand(insertItem, conn, transaction))
-                    {
-                        cmdItem.Parameters.AddWithValue("@idFactura", idFactura);
-                        cmdItem.Parameters.AddWithValue("@idItem", item.IdProducto);
-                        cmdItem.Parameters.AddWithValue("@nombreProd", item.NombreProd ?? "Producto");
-                        cmdItem.Parameters.AddWithValue("@cantidad", item.Cantidad);
-                        cmdItem.Parameters.AddWithValue("@precio", item.Precio);
-                        cmdItem.ExecuteNonQuery();
-                    }
+                            using (var cmdItem = new SqlCommand(insertItem, conn, transaction))
+                            {
+                                cmdItem.Parameters.AddWithValue("@idFactura", idFactura);
+                                cmdItem.Parameters.AddWithValue("@idItem", item.IdProducto);
+                                cmdItem.Parameters.AddWithValue("@nombreProd", item.NombreProd ?? "Producto");
+                                cmdItem.Parameters.AddWithValue("@cantidad", item.Cantidad);
+                                cmdItem.Parameters.AddWithValue("@precio", item.Precio);
+                                cmdItem.ExecuteNonQuery();
+                            }
 
-                    string restarStock = "UPDATE productos SET stockActual = stockActual - @cantidad WHERE idProducto = @id";
-                    using (var cmdStock = new SqlCommand(restarStock, conn, transaction))
+                            string restarStock = "UPDATE productos SET stockActual = stockActual - @cantidad WHERE idProducto = @id";
+                            using (var cmdStock = new SqlCommand(restarStock, conn, transaction))
+                            {
+                                cmdStock.Parameters.AddWithValue("@cantidad", item.Cantidad);
+                                cmdStock.Parameters.AddWithValue("@id", item.IdProducto);
+                                cmdStock.ExecuteNonQuery();
+                            }
+                        }
+
+                        // 4. ACTUALIZAR SALDO CLIENTE (Solo si es CtaCte)
+                        if (esCtaCte)
+                        {
+                            string sqlSaldo = "UPDATE Clientes SET SaldoActual = ISNULL(SaldoActual, 0) + @monto WHERE idCliente = @idCli";
+                            using (var cmdSaldo = new SqlCommand(sqlSaldo, conn, transaction))
+                            {
+                                cmdSaldo.Parameters.AddWithValue("@monto", venta.MontoVenta);
+                                cmdSaldo.Parameters.AddWithValue("@idCli", venta.IdCliente);
+                                cmdSaldo.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+                        return (true, idFactura, "");
+                    }
+                    catch (Exception ex)
                     {
-                        cmdStock.Parameters.AddWithValue("@cantidad", item.Cantidad);
-                        cmdStock.Parameters.AddWithValue("@id", item.IdProducto);
-                        cmdStock.ExecuteNonQuery();
+                        transaction.Rollback();
+                        Console.WriteLine("❌ Error en DB: " + ex.Message);
+                        return (false, 0, ex.Message);
                     }
                 }
+            }
+        }
 
-                // 4. ACTUALIZAR SALDO CLIENTE (Solo si es CtaCte)
-                if (esCtaCte)
+
+        public int ObtenerIdCajaAbierta()
+        {
+            using (var conn = ObtenerConexion())
+            {
+                string sql = "SELECT TOP 1 Id FROM Cajas WHERE EstaAbierta = 1 ORDER BY FechaApertura DESC";
+                conn.Open();
+                using (var cmd = new SqlCommand(sql, conn))
                 {
-                    string sqlSaldo = "UPDATE Clientes SET SaldoActual = ISNULL(SaldoActual, 0) + @monto WHERE idCliente = @idCli";
-                    using (var cmdSaldo = new SqlCommand(sqlSaldo, conn, transaction))
-                    {
-                        cmdSaldo.Parameters.AddWithValue("@monto", venta.MontoVenta);
-                        cmdSaldo.Parameters.AddWithValue("@idCli", venta.IdCliente);
-                        cmdSaldo.ExecuteNonQuery();
-                    }
+                    var result = cmd.ExecuteScalar();
+                    return result != null ? Convert.ToInt32(result) : 0;
                 }
-
-                transaction.Commit();
-                return (true, idFactura, "");
-            }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                Console.WriteLine("❌ Error en DB: " + ex.Message);
-                return (false, 0, ex.Message);
             }
         }
-    }
-}
 
-
-public int ObtenerIdCajaAbierta()
-{
-    using (var conn = ObtenerConexion())
-    {
-        string sql = "SELECT TOP 1 Id FROM Cajas WHERE EstaAbierta = 1 ORDER BY FechaApertura DESC";
-        conn.Open();
-        using (var cmd = new SqlCommand(sql, conn))
+        public (bool success, string error) LiquidarCuentaCorriente(int idCliente, decimal montoTotal, int idCajaAbierta)
         {
-            var result = cmd.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-    }
-}
-
-public (bool success, string error) LiquidarCuentaCorriente(int idCliente, decimal montoTotal, int idCajaAbierta)
-{
-    using (var conn = ObtenerConexion())
-    {
-        conn.Open();
-        using (var transaction = conn.BeginTransaction())
-        {
-            try
+            using (var conn = ObtenerConexion())
             {
-                // 1. Cambiamos todas las facturas 'Pendiente' a 'Cobrada' para este cliente
-                string sqlUpdateFacturas = @"UPDATE facturas 
+                conn.Open();
+                using (var transaction = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        // 1. Cambiamos todas las facturas 'Pendiente' a 'Cobrada' para este cliente
+                        string sqlUpdateFacturas = @"UPDATE facturas 
                                            SET estado = 'Cobrada' 
                                            WHERE idCliente = @idCli AND estado = 'Pendiente'";
-                
-                using (var cmd = new SqlCommand(sqlUpdateFacturas, conn, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@idCli", idCliente);
-                    cmd.ExecuteNonQuery();
-                }
 
-                // 2. Ponemos el Saldo del Cliente en 0
-                string sqlUpdateSaldo = "UPDATE Clientes SET SaldoActual = 0 WHERE idCliente = @idCli";
-                using (var cmdSaldo = new SqlCommand(sqlUpdateSaldo, conn, transaction))
-                {
-                    cmdSaldo.Parameters.AddWithValue("@idCli", idCliente);
-                    cmdSaldo.ExecuteNonQuery();
-                }
+                        using (var cmd = new SqlCommand(sqlUpdateFacturas, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@idCli", idCliente);
+                            cmd.ExecuteNonQuery();
+                        }
 
-                // 3. Registramos el ingreso total en los Movimientos de Caja
-                string sqlMovCaja = @"INSERT INTO MovimientosCaja (CajaId, Fecha, Monto, Concepto, Tipo) 
+                        // 2. Ponemos el Saldo del Cliente en 0
+                        string sqlUpdateSaldo = "UPDATE Clientes SET SaldoActual = 0 WHERE idCliente = @idCli";
+                        using (var cmdSaldo = new SqlCommand(sqlUpdateSaldo, conn, transaction))
+                        {
+                            cmdSaldo.Parameters.AddWithValue("@idCli", idCliente);
+                            cmdSaldo.ExecuteNonQuery();
+                        }
+
+                        // 3. Registramos el ingreso total en los Movimientos de Caja
+                        string sqlMovCaja = @"INSERT INTO MovimientosCaja (CajaId, Fecha, Monto, Concepto, Tipo) 
                                      VALUES (@cajaId, @fecha, @monto, @concepto, @tipo)";
-                
-                using (var cmdCaja = new SqlCommand(sqlMovCaja, conn, transaction))
-                {
-                    cmdCaja.Parameters.AddWithValue("@cajaId", idCajaAbierta);
-                    cmdCaja.Parameters.AddWithValue("@fecha", DateTime.Now);
-                    cmdCaja.Parameters.AddWithValue("@monto", montoTotal);
-                    cmdCaja.Parameters.AddWithValue("@concepto", "Cobro Total Cta. Cte. Cliente ID: " + idCliente);
-                    cmdCaja.Parameters.AddWithValue("@tipo", 1); // 1 = Ingreso
-                    cmdCaja.ExecuteNonQuery();
-                }
 
-                // 4. Actualizamos el MontoEsperado en la tabla Cajas
-                string sqlUpdateCaja = "UPDATE Cajas SET MontoEsperado = MontoEsperado + @monto WHERE Id = @cajaId";
-                using (var cmdUpdCaja = new SqlCommand(sqlUpdateCaja, conn, transaction))
-                {
-                    cmdUpdCaja.Parameters.AddWithValue("@monto", montoTotal);
-                    cmdUpdCaja.Parameters.AddWithValue("@cajaId", idCajaAbierta);
-                    cmdUpdCaja.ExecuteNonQuery();
-                }
+                        using (var cmdCaja = new SqlCommand(sqlMovCaja, conn, transaction))
+                        {
+                            cmdCaja.Parameters.AddWithValue("@cajaId", idCajaAbierta);
+                            cmdCaja.Parameters.AddWithValue("@fecha", FechaHelper.AhoraArgentina());
+                            cmdCaja.Parameters.AddWithValue("@monto", montoTotal);
+                            cmdCaja.Parameters.AddWithValue("@concepto", "Cobro Total Cta. Cte. Cliente ID: " + idCliente);
+                            cmdCaja.Parameters.AddWithValue("@tipo", 1); // 1 = Ingreso
+                            cmdCaja.ExecuteNonQuery();
+                        }
 
-                transaction.Commit();
-                return (true, "");
-            }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                return (false, ex.Message);
+                        // 4. Actualizamos el MontoEsperado en la tabla Cajas
+                        string sqlUpdateCaja = "UPDATE Cajas SET MontoEsperado = MontoEsperado + @monto WHERE Id = @cajaId";
+                        using (var cmdUpdCaja = new SqlCommand(sqlUpdateCaja, conn, transaction))
+                        {
+                            cmdUpdCaja.Parameters.AddWithValue("@monto", montoTotal);
+                            cmdUpdCaja.Parameters.AddWithValue("@cajaId", idCajaAbierta);
+                            cmdUpdCaja.ExecuteNonQuery();
+                        }
+
+                        transaction.Commit();
+                        return (true, "");
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        return (false, ex.Message);
+                    }
+                }
             }
         }
-    }
-}
 
 
         public List<object> ObtenerBalanceMovimientosPorFecha(DateTime desde, DateTime hasta)
@@ -2003,111 +2043,111 @@ public (bool success, string error) LiquidarCuentaCorriente(int idCliente, decim
         }
 
 
-       public List<Factura> ObtenerFacturas()
-{
-    List<Factura> lista = new List<Factura>();
+        public List<Factura> ObtenerFacturas()
+        {
+            List<Factura> lista = new List<Factura>();
 
-    using (var conn = ObtenerConexion())
-    {
-        conn.Open();
-        string query = @"
+            using (var conn = ObtenerConexion())
+            {
+                conn.Open();
+                string query = @"
             SELECT f.idFactura, f.diaVenta, f.montoVenta, f.vendedor, f.descuento, c.nombreCliente AS nombreCliente
             FROM facturas f
             JOIN clientes c ON f.idCliente = c.idCliente
             ORDER BY f.idFactura DESC";
 
-        using (var cmd = new SqlCommand(query, conn))
-        using (var reader = cmd.ExecuteReader())
-        {
-            while (reader.Read())
-            {
-                lista.Add(new Factura
+                using (var cmd = new SqlCommand(query, conn))
+                using (var reader = cmd.ExecuteReader())
                 {
-                    IdFactura = Convert.ToInt32(reader["idFactura"]),
-                    DiaVenta = Convert.ToDateTime(reader["diaVenta"]),
-                    MontoVenta = Convert.ToDecimal(reader["montoVenta"]),
-                    Vendedor = reader["vendedor"].ToString(),
-                    NombreCliente = reader["nombreCliente"].ToString(),
-                    // Cargamos el descuento (si es NULL en DB, ponemos 0)
-                    Descuento = reader["descuento"] != DBNull.Value ? Convert.ToDecimal(reader["descuento"]) : 0
-                });
+                    while (reader.Read())
+                    {
+                        lista.Add(new Factura
+                        {
+                            IdFactura = Convert.ToInt32(reader["idFactura"]),
+                            DiaVenta = Convert.ToDateTime(reader["diaVenta"]),
+                            MontoVenta = Convert.ToDecimal(reader["montoVenta"]),
+                            Vendedor = reader["vendedor"].ToString(),
+                            NombreCliente = reader["nombreCliente"].ToString(),
+                            // Cargamos el descuento (si es NULL en DB, ponemos 0)
+                            Descuento = reader["descuento"] != DBNull.Value ? Convert.ToDecimal(reader["descuento"]) : 0
+                        });
+                    }
+                }
             }
+            return lista;
         }
-    }
-    return lista;
-}
 
 
-     public Factura ObtenerFacturaConItems(int idFactura)
-{
-    Factura factura = null;
+        public Factura ObtenerFacturaConItems(int idFactura)
+        {
+            Factura factura = null;
 
-    using (var conn = ObtenerConexion())
-    {
-        conn.Open();
+            using (var conn = ObtenerConexion())
+            {
+                conn.Open();
 
-        string queryFactura = @"
+                string queryFactura = @"
             SELECT f.idFactura, f.diaVenta, f.montoVenta, f.vendedor, f.descuento, f.medioPago,
                    c.nombreCliente, c.dniCliente, c.domicilio, c.localidad, c.telefonoCliente
             FROM facturas f
             JOIN clientes c ON f.idCliente = c.idCliente
             WHERE f.idFactura = @id";
 
-        using (var cmd = new SqlCommand(queryFactura, conn))
-        {
-            cmd.Parameters.AddWithValue("@id", idFactura);
-            using (var reader = cmd.ExecuteReader())
-            {
-                if (reader.Read())
+                using (var cmd = new SqlCommand(queryFactura, conn))
                 {
-                    factura = new Factura
+                    cmd.Parameters.AddWithValue("@id", idFactura);
+                    using (var reader = cmd.ExecuteReader())
                     {
-                        IdFactura = Convert.ToInt32(reader["idFactura"]),
-                        DiaVenta = Convert.ToDateTime(reader["diaVenta"]),
-                        MontoVenta = Convert.ToDecimal(reader["montoVenta"]),
-                        Vendedor = reader["vendedor"].ToString(),
-                        NombreCliente = reader["nombreCliente"].ToString(),
-                        DniCliente = reader["dniCliente"].ToString(),
-                        Domicilio = reader["domicilio"].ToString(),
-                        Localidad = reader["localidad"].ToString(),
-                        TelefonoCliente = reader["telefonoCliente"].ToString(),
-                        MedioPago = reader["medioPago"].ToString(), // Aprovechamos a traer el medio de pago
-                        // CLAVE: Traemos el descuento
-                        Descuento = reader["descuento"] != DBNull.Value ? Convert.ToDecimal(reader["descuento"]) : 0,
-                        Items = new List<FacturaItem>()
-                    };
+                        if (reader.Read())
+                        {
+                            factura = new Factura
+                            {
+                                IdFactura = Convert.ToInt32(reader["idFactura"]),
+                                DiaVenta = Convert.ToDateTime(reader["diaVenta"]),
+                                MontoVenta = Convert.ToDecimal(reader["montoVenta"]),
+                                Vendedor = reader["vendedor"].ToString(),
+                                NombreCliente = reader["nombreCliente"].ToString(),
+                                DniCliente = reader["dniCliente"].ToString(),
+                                Domicilio = reader["domicilio"].ToString(),
+                                Localidad = reader["localidad"].ToString(),
+                                TelefonoCliente = reader["telefonoCliente"].ToString(),
+                                MedioPago = reader["medioPago"].ToString(), // Aprovechamos a traer el medio de pago
+                                                                            // CLAVE: Traemos el descuento
+                                Descuento = reader["descuento"] != DBNull.Value ? Convert.ToDecimal(reader["descuento"]) : 0,
+                                Items = new List<FacturaItem>()
+                            };
+                        }
+                    }
                 }
-            }
-        }
 
-        if (factura != null)
-        {
-            string queryItems = @"
+                if (factura != null)
+                {
+                    string queryItems = @"
                 SELECT fi.nombreProd, fi.cantidad, fi.precio
                 FROM facturaitem fi
                 WHERE fi.idFactura = @id";
 
-            using (var cmd = new SqlCommand(queryItems, conn))
-            {
-                cmd.Parameters.AddWithValue("@id", idFactura);
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
+                    using (var cmd = new SqlCommand(queryItems, conn))
                     {
-                        factura.Items.Add(new FacturaItem
+                        cmd.Parameters.AddWithValue("@id", idFactura);
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            NombreProd = reader["nombreProd"].ToString(),
-                            Cantidad = Convert.ToInt32(reader["cantidad"]),
-                            Precio = Convert.ToDecimal(reader["precio"])
-                        });
+                            while (reader.Read())
+                            {
+                                factura.Items.Add(new FacturaItem
+                                {
+                                    NombreProd = reader["nombreProd"].ToString(),
+                                    Cantidad = Convert.ToInt32(reader["cantidad"]),
+                                    Precio = Convert.ToDecimal(reader["precio"])
+                                });
+                            }
+                        }
                     }
                 }
             }
-        }
-    }
 
-    return factura;
-}
+            return factura;
+        }
 
 
         public void EliminarFactura(int idFactura)
@@ -2132,30 +2172,30 @@ public (bool success, string error) LiquidarCuentaCorriente(int idCliente, decim
             }
         }
 
-public int ActualizarPreciosPorProveedor(string proveedor, decimal porcentaje)
-{
-    using (SqlConnection conn = ObtenerConexion())
-    {
-        conn.Open();
-        
-        // Explicación de la fórmula:
-        // 1. Multiplicamos el PrecioCosto por el factor de aumento (ej: 1.10 para un 10%)
-        // 2. Recalculamos el PrecioVenta usando el NUEVO PrecioCosto y el Recargo actual
-        string sql = @"UPDATE productos 
+        public int ActualizarPreciosPorProveedor(string proveedor, decimal porcentaje)
+        {
+            using (SqlConnection conn = ObtenerConexion())
+            {
+                conn.Open();
+
+                // Explicación de la fórmula:
+                // 1. Multiplicamos el PrecioCosto por el factor de aumento (ej: 1.10 para un 10%)
+                // 2. Recalculamos el PrecioVenta usando el NUEVO PrecioCosto y el Recargo actual
+                string sql = @"UPDATE productos 
                        SET PrecioCosto = PrecioCosto * (1 + (@porcentaje / 100)),
                            PrecioVenta = (PrecioCosto * (1 + (@porcentaje / 100))) * (1 + (RecargoPorcentaje / 100))
                        WHERE NombreProveedor = @proveedor";
 
-        using (SqlCommand cmd = new SqlCommand(sql, conn))
-        {
-            // Importante: El porcentaje viene como número entero (ej: 10)
-            cmd.Parameters.AddWithValue("@porcentaje", porcentaje);
-            cmd.Parameters.AddWithValue("@proveedor", proveedor);
-            
-            return cmd.ExecuteNonQuery();
+                using (SqlCommand cmd = new SqlCommand(sql, conn))
+                {
+                    // Importante: El porcentaje viene como número entero (ej: 10)
+                    cmd.Parameters.AddWithValue("@porcentaje", porcentaje);
+                    cmd.Parameters.AddWithValue("@proveedor", proveedor);
+
+                    return cmd.ExecuteNonQuery();
+                }
+            }
         }
-    }
-}
 
 
         public bool VerificarSiHayCajaAbierta()

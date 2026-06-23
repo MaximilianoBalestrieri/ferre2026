@@ -8,7 +8,8 @@ namespace GestionVentas.Models
     {
         public int IdUsuario { get; set; }
         public string UsuarioNombre { get; set; }
-        public string Contraseña { get; set; }  // Esto exige setearla sí o sí
+        public string Contraseña { get; set; }  
+        public string? PasswordHash { get; set; }
         public string Rol { get; set; }
         public string NombreyApellido { get; set; }
         public string? FotoPerfil { get; set; }

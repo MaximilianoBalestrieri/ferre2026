@@ -87,7 +87,7 @@ namespace GestionVentas.Controllers
                             var mov = new MovimientoCaja
                             {
                                 CajaId = cajaAbierta.Id,
-                                Fecha = DateTime.Now,
+                                Fecha = FechaHelper.AhoraArgentina(),
                                 Monto = datos.MontoVenta,
                                 Concepto = $"Venta Factura N° {resultado.idFactura} {etiquetaMedio}",
                                 Tipo = TipoMovimiento.Ingreso,

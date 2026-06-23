@@ -113,7 +113,7 @@ public class CajaController : Controller
             var mov = new MovimientoCaja
 {
     CajaId = cajaActual.Id,
-    Fecha = DateTime.Now,
+    Fecha = FechaHelper.AhoraArgentina(),
     Monto = monto,
     Concepto = conceptoFinal,
     Tipo = tipo,

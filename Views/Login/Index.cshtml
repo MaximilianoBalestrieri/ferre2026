@@ -29,6 +29,8 @@
 
             @using (Html.BeginForm("Login", "Login", FormMethod.Post))
             {
+                @Html.AntiForgeryToken()
+                
                 <div class="form-group">
                     <label for="usuario">Usuario</label>
                     @Html.TextBox("usuario", ViewBag.Usuario as string, new { @class = "form-control", placeholder = "Tu usuario", required = "required", id = "usuario", autofocus = "autofocus" })

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using GestionVentas.Models;
 using System.Security.AccessControl;
+using Microsoft.AspNetCore.Identity;
 
 namespace GestionVentas.Controllers
 {
@@ -98,9 +99,9 @@ namespace GestionVentas.Controllers
                     Directory.CreateDirectory(rutaFotos);
                 }
 
-DirectoryInfo dInfo = new DirectoryInfo(rutaFotos);
-DirectorySecurity dSecurity = dInfo.GetAccessControl();
-// Aquí se intentaría añadir permisos, pero es más efectivo hacerlo desde el panel.
+                DirectoryInfo dInfo = new DirectoryInfo(rutaFotos);
+                DirectorySecurity dSecurity = dInfo.GetAccessControl();
+                // Aquí se intentaría añadir permisos, pero es más efectivo hacerlo desde el panel.
 
                 //    Directory.CreateDirectory(rutaFotos);
                 string nombreArchivo = Guid.NewGuid() + Path.GetExtension(usuario.FotoSubida.FileName).ToLower();
@@ -115,7 +116,8 @@ DirectorySecurity dSecurity = dInfo.GetAccessControl();
             {
                 usuario.FotoPerfil = "/imagenes/usuarios/default.png";
             }
-
+            var hasher = new PasswordHasher<Usuario>();
+            usuario.PasswordHash = hasher.HashPassword(usuario, usuario.Contraseña);
             db.AgregarUsuario(usuario);
             return RedirectToAction("Index");
         }
@@ -150,23 +152,41 @@ DirectorySecurity dSecurity = dInfo.GetAccessControl();
 
             usuarioOriginal.UsuarioNombre = usuario.UsuarioNombre;
             usuarioOriginal.NombreyApellido = usuario.NombreyApellido;
-            usuarioOriginal.Contraseña = usuario.Contraseña;
+            if (!string.IsNullOrWhiteSpace(usuario.Contraseña))
+            {
+                var hasher = new PasswordHasher<Usuario>();
+                usuarioOriginal.PasswordHash = hasher.HashPassword(usuarioOriginal, usuario.Contraseña);
+            }
             usuarioOriginal.Rol = usuario.Rol;
 
             db.ActualizarUsuario(usuarioOriginal);
             return RedirectToAction("Index");
         }
 
-        [HttpGet]
-        public JsonResult BuscarUsuarios(string filtro)
-        {
-            var lista = db.ObtenerUsuarios();
-            if (!string.IsNullOrEmpty(filtro))
-                lista = lista.Where(u => u.NombreyApellido != null && u.NombreyApellido.ToLower().Contains(filtro.ToLower())).ToList();
+       [HttpGet]
+public JsonResult BuscarUsuarios(string filtro)
+{
+    var lista = db.ObtenerUsuarios();
 
-            return Json(lista.Select(u => new { u.IdUsuario, u.UsuarioNombre, u.NombreyApellido, u.Rol }));
-        }
+    if (!string.IsNullOrEmpty(filtro))
+    {
+        lista = lista.Where(u =>
+            u.NombreyApellido != null &&
+            u.NombreyApellido.ToLower().Contains(filtro.ToLower()))
+            .ToList();
+    }
 
+    return Json(lista.Select(u => new
+    {
+        idUsuario = u.IdUsuario,
+        usuarioNombre = u.UsuarioNombre,
+        nombreyApellido = u.NombreyApellido,
+        rol = u.Rol,
+        fotoPerfil = string.IsNullOrEmpty(u.FotoPerfil)
+            ? "/imagenes/usuarios/default.png"
+            : u.FotoPerfil
+    }));
+}
         public ActionResult Delete(int id)
         {
             var usuario = db.ObtenerUsuarioPorId(id);
@@ -232,11 +252,15 @@ DirectorySecurity dSecurity = dInfo.GetAccessControl();
 
             if (accion == "guardarPerfil" && !string.IsNullOrEmpty(NuevaContrasena))
             {
-                usuario.Contraseña = NuevaContrasena;
+                var hasher = new PasswordHasher<Usuario>();
+                usuario.PasswordHash = hasher.HashPassword(usuario, NuevaContrasena);
+
                 db.ActualizarClave(usuario);
             }
 
             return RedirectToAction("Index", "Home");
         }
+
+      
     }
 }

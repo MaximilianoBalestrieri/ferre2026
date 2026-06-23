@@ -38,7 +38,7 @@ namespace GestionVentas.Controllers
         {
             var model = new Presupuesto
             {
-                Fecha = DateTime.Now
+                Fecha =FechaHelper.AhoraArgentina()
             };
 
             return View(model);

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using GestionVentas.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
-using GestionVentas.Helpers;
+using Microsoft.AspNetCore.Identity;
 
 namespace GestionVentas.Controllers
 {
@@ -19,35 +19,47 @@ namespace GestionVentas.Controllers
         [HttpGet]
         public IActionResult Index()
         {
-            return View(); // Vista del login
+            return View();
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(string usuario, string contraseña)
         {
-            var user = conexionDB.BuscarUsuario(usuario, contraseña);
+            var user = conexionDB.ObtenerUsuarioPorNombre(usuario);
 
-            if (user != null)
+            if (user != null && !string.IsNullOrEmpty(user.PasswordHash))
             {
-                var claims = new List<Claim>
+                var hasher = new PasswordHasher<Usuario>();
+
+                var resultado = hasher.VerifyHashedPassword(
+                    user,
+                    user.PasswordHash,
+                    contraseña
+                );
+
+                if (resultado == PasswordVerificationResult.Success)
                 {
-                    new Claim(ClaimTypes.Name, user.UsuarioNombre),
-                    new Claim(ClaimTypes.Role, user.Rol),
-                    new Claim("NombreyApellido", user.NombreyApellido),
-                    new Claim("FotoPerfil", user.FotoPerfil ?? "/imagenes/usuarios/default.png")
-                };
+                    var claims = new List<Claim>
+                    {
+                        new Claim(ClaimTypes.Name, user.UsuarioNombre),
+                        new Claim(ClaimTypes.Role, user.Rol),
+                        new Claim("NombreyApellido", user.NombreyApellido),
+                        new Claim("FotoPerfil", user.FotoPerfil ?? "/imagenes/usuarios/default.png")
+                    };
 
-                var identity = new ClaimsIdentity(claims, "MiCookieAuth");
-                var principal = new ClaimsPrincipal(identity);
+                    var identity = new ClaimsIdentity(claims, "MiCookieAuth");
+                    var principal = new ClaimsPrincipal(identity);
 
-                await HttpContext.SignInAsync("MiCookieAuth", principal);
+                    await HttpContext.SignInAsync("MiCookieAuth", principal);
 
-                HttpContext.Session.SetString("Usuario", user.UsuarioNombre);
-                HttpContext.Session.SetString("NombreyApellido", user.NombreyApellido);
-                HttpContext.Session.SetString("Rol", user.Rol);
-                HttpContext.Session.SetString("FotoPerfil", user.FotoPerfil ?? "/imagenes/usuarios/default.png");
+                    HttpContext.Session.SetString("Usuario", user.UsuarioNombre);
+                    HttpContext.Session.SetString("NombreyApellido", user.NombreyApellido);
+                    HttpContext.Session.SetString("Rol", user.Rol);
+                    HttpContext.Session.SetString("FotoPerfil", user.FotoPerfil ?? "/imagenes/usuarios/default.png");
 
-                return RedirectToAction("Index", "Home");
+                    return RedirectToAction("Index", "Home");
+                }
             }
 
             ViewBag.Error = "Usuario o contraseña incorrectos.";

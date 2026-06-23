@@ -1,37 +1,27 @@
 @using GestionVentas.Models
-
 @model List<GestionVentas.Models.Usuario>
+
 <h2>Gestión de Usuarios</h2>
 
-<!-- Buscador -->
-<form method="get" asp-controller="Usuarios" asp-action="Index">
-    <input type="text" name="searchString" value="@ViewBag.SearchString" placeholder="Buscar por nombre y apellido" />
-    <button type="submit">Buscar</button>
-</form>
+<div class="mb-3">
+    <input type="text" id="buscadorUsuarios" class="form-control shadow-sm" style="max-width:600px;"
+           placeholder="🔍 Buscar por nombre y apellido..." autofocus />
+</div>
 
-<!-- Botón agregar -->
 <a href="@Url.Action("Create")" class="btn btn-success mt-2">Agregar Usuario</a>
 
-<!-- Tabla de usuarios -->
 <table class="table table-striped mt-3">
     <thead>
         <tr>
             <th>Foto</th>
-            <th>
-                <a href="@Url.Action("Index", new { sortOrder = ViewBag.NameSortParm, searchString = ViewBag.SearchString })">
-                    Nombre y Apellido
-                </a>
-            </th>
+            <th>Nombre y Apellido</th>
             <th>Usuario</th>
-            <th>
-                <a href="@Url.Action("Index", new { sortOrder = ViewBag.RolSortParm, searchString = ViewBag.SearchString })">
-                    Rol
-                </a>
-            </th>
+            <th>Rol</th>
             <th>Acciones</th>
         </tr>
     </thead>
-    <tbody>
+
+    <tbody id="tablaUsuarios">
         @foreach (var u in Model)
         {
             <tr>
@@ -51,6 +41,61 @@
     </tbody>
 </table>
 
+<script>
+    const inputBusqueda = document.getElementById("buscadorUsuarios");
+    const tablaUsuarios = document.getElementById("tablaUsuarios");
+
+    inputBusqueda.addEventListener("input", function () {
+        const filtro = inputBusqueda.value;
+
+        fetch(`/Usuarios/BuscarUsuarios?filtro=${encodeURIComponent(filtro)}`)
+            .then(response => response.json())
+            .then(data => {
+                tablaUsuarios.innerHTML = "";
+
+                if (data.length === 0) {
+                    tablaUsuarios.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">
+                                No se encontraron usuarios
+                            </td>
+                        </tr>`;
+                    return;
+                }
+
+                data.forEach(u => {
+                    const fila = `
+                        <tr>
+                            <td>
+                                <img src="${u.fotoPerfil || '/imagenes/usuarios/default.png'}"
+                                     class="rounded-circle"
+                                     style="width: 60px; height: 60px; object-fit: cover;" />
+                            </td>
+                            <td>${u.nombreyApellido}</td>
+                            <td>${u.usuarioNombre}</td>
+                            <td>${u.rol}</td>
+                            <td>
+                                <a href="/Usuarios/Edit/${u.idUsuario}" class="btn btn-warning btn-sm">Editar</a>
+                                <a href="/Usuarios/Delete/${u.idUsuario}" class="btn btn-danger btn-sm">Eliminar</a>
+                            </td>
+                        </tr>
+                    `;
+
+                    tablaUsuarios.innerHTML += fila;
+                });
+            })
+            .catch(error => console.error("Error al buscar usuarios:", error));
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const input = document.getElementById("buscadorUsuarios");
+
+        input.focus();
+
+        if (input.value.length > 0) {
+            input.select();
+        }
+    });
 
 
-
+</script>
