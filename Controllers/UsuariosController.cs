@@ -261,6 +261,23 @@ public JsonResult BuscarUsuarios(string filtro)
             return RedirectToAction("Index", "Home");
         }
 
-      
+      [HttpGet]
+public IActionResult ResetPasswordAdmin()
+{
+    var usuario = db.ObtenerUsuarioPorNombre("Mbalestrieri");
+
+    if (usuario == null)
+        return Content("Usuario no encontrado");
+
+    var hasher = new Microsoft.AspNetCore.Identity.PasswordHasher<Usuario>();
+
+    usuario.PasswordHash = hasher.HashPassword(usuario, "Admin#2026!");
+
+    db.ActualizarClave(usuario);
+
+    return Content("Contraseña reseteada correctamente.");
+}
+
+
     }
 }
