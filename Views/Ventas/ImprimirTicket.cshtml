@@ -1,93 +1,117 @@
 @model GestionVentas.Models.Factura
 @{
-    Layout = null; 
+    Layout = null;
 }
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="utf-8" />
     <title>Ticket #@Model.IdFactura</title>
     <style>
-        /* 1. CONFIGURACIÓN DEL PAPEL - 58mm térmico */
-        @@page {
-            size: 58mm auto;
-            margin: 0;
-        }
+            /* 1. CONFIGURACIÓN DEL PAPEL - 58mm térmico */
+            @@page {
+                size: 58mm auto;
+                margin: 0;
+            }
 
-        /* 2. ESTILOS GENERALES - Fuente Arial para mejor legibilidad */
-        body {
-            width: 100%;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, Helvetica, sans-serif; 
-            font-size: 13px; 
-            line-height: 1.1;
-            background-color: white;
-            color: #000;
-        }
+            /* 2. ESTILOS GENERALES - Fuente Arial para mejor legibilidad */
+            body {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 13px;
+                line-height: 1.1;
+                background-color: white;
+                color: #000;
+            }
 
-        /* Contenedor ampliado para ganar esos 2 caracteres a la derecha */
-        .ticket {
-            width: 53mm; 
-            margin: 0 auto;
-            padding: 2mm 1mm;
-            box-sizing: border-box;
-        }
+            /* Contenedor ampliado para ganar esos 2 caracteres a la derecha */
+            .ticket {
+                width: 53mm;
+                margin: 0 auto;
+                padding: 2mm 1mm;
+                box-sizing: border-box;
+            }
 
-        /* 3. UTILIDADES DE TEXTO */
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .bold { font-weight: 900; } 
-        
-        .linea { border-top: 1px solid #000; margin: 4px 0; }
-        .dashed { border-top: 1px dashed #000; }
-        
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin: 5px 0;
-            table-layout: fixed; 
-        }
+            /* 3. UTILIDADES DE TEXTO */
+            .text-center {
+                text-align: center;
+            }
 
-        th { 
-            border-bottom: 1px solid #000; 
-            text-align: left; 
-            font-size: 12px;
-            font-weight: 900;
-        }
+            .text-right {
+                text-align: right;
+            }
 
-        td { 
-            padding: 3px 0; 
-            vertical-align: top;
-            word-wrap: break-word;
-            font-size: 12px;
-            /* Grosor medio para que la tiquetera marque bien */
-            font-weight: 600; 
-        }
+            .bold {
+                font-weight: 900;
+            }
 
-        .total-container {
-            margin-top: 5px;
-            font-size: 16px; 
-            font-weight: 900;
-            border-top: 1px solid #000;
-            padding-top: 3px;
-        }
+            .linea {
+                border-top: 1px solid #000;
+                margin: 4px 0;
+            }
 
-        /* OCULTAR BOTONES AL IMPRIMIR */
-        @@media print {
-            .no-print { display: none !important; }
-            body { background-color: #fff; }
-        }
+            .dashed {
+                border-top: 1px dashed #000;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 5px 0;
+                table-layout: fixed;
+            }
+
+            th {
+                border-bottom: 1px solid #000;
+                text-align: left;
+                font-size: 12px;
+                font-weight: 900;
+            }
+
+            td {
+                padding: 3px 0;
+                vertical-align: top;
+                word-wrap: break-word;
+                font-size: 12px;
+                /* Grosor medio para que la tiquetera marque bien */
+                font-weight: 600;
+            }
+
+            .total-container {
+                margin-top: 5px;
+                font-size: 16px;
+                font-weight: 900;
+                border-top: 1px solid #000;
+                padding-top: 3px;
+            }
+
+            /* OCULTAR BOTONES AL IMPRIMIR */
+            @@media print {
+                .no-print {
+                    display: none !important;
+                }
+
+                body {
+                    background-color: #fff;
+                }
+            }
     </style>
 </head>
+
 <body>
 
-    <div class="no-print" style="background: #f8f9fa; padding: 10px; text-align: center; border-bottom: 1px solid #ddd; position: sticky; top: 0;">
-        <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #198754; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 14px;">
+    <div class="no-print"
+         style="background: #f8f9fa; padding: 10px; text-align: center; border-bottom: 1px solid #ddd; position: sticky; top: 0;">
+        <button onclick="window.print()"
+                style="padding: 10px 20px; cursor: pointer; background: #198754; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 14px;">
             🖨️ IMPRIMIR TICKET
         </button>
-        <button onclick="window.close()" style="padding: 10px 20px; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 5px; margin-left: 10px; font-weight: bold; font-size: 14px;">
+        <button onclick="window.close()"
+                style="padding: 10px 20px; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 5px; margin-left: 10px; font-weight: bold; font-size: 14px;">
             ❌ CERRAR
         </button>
     </div>
@@ -103,7 +127,7 @@
 
         <div style="font-size: 11px;">
             <b class="bold">Ticket:</b> #@Model.IdFactura.ToString("D8")<br>
-            <b class="bold">Fecha:</b> @DateTime.Now.ToString("dd/MM/yyyy HH:mm")<br>
+            <b class="bold">Fecha:</b> @Model.DiaVenta.ToString("dd/MM/yyyy HH:mm")<br>
         </div>
 
         <div class="linea"></div>
@@ -139,7 +163,7 @@
             }
 
             <div>Subtotal: $@subtotalReal.ToString("N2")</div>
-            
+
             @if (porcentaje > 0)
             {
                 <div class="bold">Desc. (@porcentaje.ToString("0")%): -$@montoDescuento.ToString("N2")</div>
@@ -157,25 +181,26 @@
             www.ferreteriasantiago.com.ar
             <br><br><br>
         </div>
-        
+
         <div style="height: 60px; text-align: center; font-size: 10px; padding-top: 10px;">.</div>
     </div>
 
-<script>
-    window.onload = function() {
-        window.focus();
-        window.print();
-        
-        // Cierra la pestaña después de imprimir para no amontonar ventanas
-        window.onafterprint = function() {
-            window.close();
-        };
+    <script>
+            window.onload = function () {
+                window.focus();
+                window.print();
 
-        // Fallback: cerrar si queda colgado
-        setTimeout(function() {
-             // window.close(); 
-        }, 5000);
-    };
-</script>
+                // Cierra la pestaña después de imprimir para no amontonar ventanas
+                window.onafterprint = function () {
+                    window.close();
+                };
+
+                // Fallback: cerrar si queda colgado
+                setTimeout(function () {
+                    // window.close(); 
+                }, 5000);
+            };
+    </script>
 </body>
+
 </html>

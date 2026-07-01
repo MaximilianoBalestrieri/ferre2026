@@ -135,25 +135,45 @@ public class CajaController : Controller
     }
 
     // 5. GET: Formulario de Cierre (Arqueo)
-    [HttpGet]
-    public IActionResult CerrarCaja()
-    {
-        var caja = conexion.Cajas.FirstOrDefault(c => c.EstaAbierta);
-        if (caja == null) return RedirectToAction("Index");
+   [HttpGet]
+public IActionResult CerrarCaja()
+{
+    var caja = conexion.Cajas.FirstOrDefault(c => c.EstaAbierta);
+    if (caja == null) return RedirectToAction("Index");
 
-        var movimientos = conexion.MovimientosCaja.Where(m => m.CajaId == caja.Id).ToList();
+    var movimientos = conexion.MovimientosCaja
+        .Where(m => m.CajaId == caja.Id)
+        .ToList();
 
-        decimal ingEf = movimientos.Where(m => m.Tipo == TipoMovimiento.Ingreso && m.Concepto.Contains("(Efectivo)")).Sum(m => m.Monto);
-        decimal egEf = movimientos.Where(m => m.Tipo == TipoMovimiento.Egreso && m.Concepto.Contains("(Efectivo)")).Sum(m => m.Monto);
-        decimal ingTr = movimientos.Where(m => m.Tipo == TipoMovimiento.Ingreso && m.Concepto.Contains("(Transferencia)")).Sum(m => m.Monto);
-        decimal egTr = movimientos.Where(m => m.Tipo == TipoMovimiento.Egreso && m.Concepto.Contains("(Transferencia)")).Sum(m => m.Monto);
+    decimal ingEf = movimientos
+        .Where(m => m.Tipo == TipoMovimiento.Ingreso &&
+                    !string.IsNullOrEmpty(m.Concepto) &&
+                    m.Concepto.ToUpper().Contains("EFECTIVO"))
+        .Sum(m => m.Monto);
 
-        ViewBag.TotalEsperadoEfectivo = caja.MontoInicial + ingEf - egEf;
-        ViewBag.TotalEsperadoTransferencia = ingTr - egTr;
+    decimal egEf = movimientos
+        .Where(m => m.Tipo == TipoMovimiento.Egreso &&
+                    !string.IsNullOrEmpty(m.Concepto) &&
+                    m.Concepto.ToUpper().Contains("EFECTIVO"))
+        .Sum(m => m.Monto);
 
-        return View(caja);
-    }
+    decimal ingTr = movimientos
+        .Where(m => m.Tipo == TipoMovimiento.Ingreso &&
+                    !string.IsNullOrEmpty(m.Concepto) &&
+                    m.Concepto.ToUpper().Contains("TRANSFERENCIA"))
+        .Sum(m => m.Monto);
 
+    decimal egTr = movimientos
+        .Where(m => m.Tipo == TipoMovimiento.Egreso &&
+                    !string.IsNullOrEmpty(m.Concepto) &&
+                    m.Concepto.ToUpper().Contains("TRANSFERENCIA"))
+        .Sum(m => m.Monto);
+
+    ViewBag.TotalEsperadoEfectivo = caja.MontoInicial + ingEf - egEf;
+    ViewBag.TotalEsperadoTransferencia = ingTr - egTr;
+
+    return View(caja);
+}
     // 6. POST: Procesar Cierre
   [HttpPost]
 [ValidateAntiForgeryToken]
