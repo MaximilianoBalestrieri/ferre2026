@@ -1,6 +1,6 @@
 @model GestionVentas.Models.Productos
 
-
+@using System.Globalization
 <div class="container mt-5 d-flex justify-content-center">
 
     <div class="card shadow-sm border-0 w-100" style="max-width: 800px;">
@@ -40,7 +40,7 @@
                     <div class="col-md-4">
                         @Html.LabelFor(m => m.PrecioCosto)
                         <input type="text" id="PrecioCostoVisible" class="form-control"
-                            value="@Model.PrecioCosto.ToString("N2")" />
+                            value="@Model.PrecioCosto.ToString("N2", CultureInfo.GetCultureInfo("es-AR"))" />
                         @Html.HiddenFor(m => m.PrecioCosto, new { id = "PrecioCostoReal" })
                     </div>
 
@@ -53,7 +53,7 @@
                 <div class="col-md-4">
                     @Html.LabelFor(m => m.PrecioVenta)
                     <input type="text" id="PrecioVentaVisible" class="form-control"
-                        value="@Model.PrecioVenta.ToString("N2")" readonly />
+                        value="@Model.PrecioVenta.ToString("N2", CultureInfo.GetCultureInfo("es-AR"))" readonly />
                     @Html.HiddenFor(m => m.PrecioVenta, new { id = "PrecioVentaReal" })
                 </div>
 

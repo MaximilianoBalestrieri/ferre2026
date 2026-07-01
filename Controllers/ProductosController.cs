@@ -47,7 +47,7 @@ namespace GestionVentas.Controllers
                            NombreProveedor, StockActual, StockMinimo, Imagen, Descripcion
                     FROM productos
                     WHERE (@busqueda = '' OR nombre LIKE @busqueda OR codigo LIKE @busqueda)
-                    ORDER BY IdProducto
+                    ORDER BY Nombre ASC
                     OFFSET @inicio ROWS FETCH NEXT @tamanio ROWS ONLY";
 
                 using (SqlCommand cmd = new SqlCommand(consulta, conn))
@@ -98,7 +98,7 @@ namespace GestionVentas.Controllers
             return View(productos);
         }
 
-       [HttpGet]
+[HttpGet]
 public JsonResult Buscar(string term, string proveedor, int pagina = 1)
 {
     var productos = db.ObtenerProductos();
@@ -133,6 +133,7 @@ public JsonResult Buscar(string term, string proveedor, int pagina = 1)
 
     // 5. Devolver solo el segmento de la página solicitada (Skip y Take)
     var resultadoPaginado = productos
+        .OrderBy(p => p.Nombre)
         .Skip((pagina - 1) * tamanioPagina)
         .Take(tamanioPagina)
         .ToList();
@@ -214,7 +215,7 @@ public IActionResult Create([FromForm] Productos prod, IFormFile? imagen)
                 prod.Imagen =
                     "/imagenes/productos/no-disponible.png";
             }
-
+            
             db.AgregarProducto(prod);
 
             return RedirectToAction("Index");
@@ -223,7 +224,8 @@ public IActionResult Create([FromForm] Productos prod, IFormFile? imagen)
     catch (Exception ex)
     {
         ViewBag.Error =
-            "Error al guardar el producto: " + ex.Message;
+          //  "Error al guardar el producto: " + ex.Message; 
+            "Error al guardar el producto verifique carga.  ";
     }
 
     prod.Proveedores = db.ObtenerProveedores()
@@ -277,69 +279,73 @@ public IActionResult Create([FromForm] Productos prod, IFormFile? imagen)
             return View(producto);
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Edit(Productos model, IFormFile? imagen)
+     [HttpPost]
+[ValidateAntiForgeryToken]
+public IActionResult Edit(Productos model, IFormFile? imagen)
+{
+    var culturaArg = new System.Globalization.CultureInfo("es-AR");
+    System.Threading.Thread.CurrentThread.CurrentCulture = culturaArg;
+    System.Threading.Thread.CurrentThread.CurrentUICulture = culturaArg;
+
+    string precioCostoRaw = Request.Form["PrecioCosto"].ToString();
+    string recargoRaw = Request.Form["RecargoPorcentaje"].ToString();
+
+    if (decimal.TryParse(precioCostoRaw, System.Globalization.NumberStyles.Any, culturaArg, out decimal precioLimpio))
+        model.PrecioCosto = precioLimpio;
+
+    if (decimal.TryParse(recargoRaw, System.Globalization.NumberStyles.Any, culturaArg, out decimal recargoLimpio))
+        model.RecargoPorcentaje = recargoLimpio;
+
+    ViewBag.FotoPerfil = HttpContext.Session.GetString("FotoPerfil");
+
+    ModelState.Clear();
+    TryValidateModel(model);
+
+    if (!ModelState.IsValid)
+    {
+        model.Proveedores = db.ObtenerProveedores()
+            .Select(p => new SelectListItem
+            {
+                Value = p.NombreProveedor,
+                Text = p.NombreProveedor
+            }).ToList();
+
+        return View(model);
+    }
+
+    var producto = db.ObtenerProductoPorId(model.IdProducto);
+    if (producto == null) return NotFound();
+
+    producto.Codigo = model.Codigo;
+    producto.Nombre = model.Nombre;
+    producto.Categoria = model.Categoria;
+    producto.Descripcion = model.Descripcion;
+
+    // Estos dos actualizan el PrecioVenta automáticamente,
+    // porque PrecioVenta es una propiedad calculada en el modelo.
+    producto.PrecioCosto = model.PrecioCosto;
+    producto.RecargoPorcentaje = model.RecargoPorcentaje;
+
+    producto.StockActual = model.StockActual;
+    producto.StockMinimo = model.StockMinimo;
+    producto.NombreProveedor = model.NombreProveedor;
+
+    if (imagen != null && imagen.Length > 0)
+    {
+        string nombreArchivo = Guid.NewGuid().ToString() + Path.GetExtension(imagen.FileName);
+        string rutaCarpeta = Path.Combine(_webHostEnvironment.WebRootPath, "imagenes", "productos");
+        Directory.CreateDirectory(rutaCarpeta);
+
+        using (var stream = new FileStream(Path.Combine(rutaCarpeta, nombreArchivo), FileMode.Create))
         {
-            var culturaArg = new System.Globalization.CultureInfo("es-AR");
-            System.Threading.Thread.CurrentThread.CurrentCulture = culturaArg;
-            System.Threading.Thread.CurrentThread.CurrentUICulture = culturaArg;
-
-            string precioCostoRaw = Request.Form["PrecioCosto"].ToString();
-            string recargoRaw = Request.Form["RecargoPorcentaje"].ToString();
-
-            if (decimal.TryParse(precioCostoRaw, System.Globalization.NumberStyles.Any, culturaArg, out decimal precioLimpio))
-                model.PrecioCosto = precioLimpio;
-
-            if (decimal.TryParse(recargoRaw, System.Globalization.NumberStyles.Any, culturaArg, out decimal recargoLimpio))
-                model.RecargoPorcentaje = recargoLimpio;
-
-            ViewBag.FotoPerfil = HttpContext.Session.GetString("FotoPerfil");
-
-            ModelState.Clear();
-            TryValidateModel(model);
-
-            if (!ModelState.IsValid)
-            {
-                model.Proveedores = db.ObtenerProveedores()
-                    .Select(p => new SelectListItem
-                    {
-                        Value = p.NombreProveedor,
-                        Text = p.NombreProveedor
-                    }).ToList();
-
-                return View(model);
-            }
-
-            var producto = db.ObtenerProductoPorId(model.IdProducto);
-            if (producto == null) return NotFound();
-
-            producto.Codigo = model.Codigo;
-            producto.Nombre = model.Nombre;
-            producto.Categoria = model.Categoria;
-            producto.Descripcion = model.Descripcion;
-            producto.PrecioCosto = model.PrecioCosto;
-            producto.RecargoPorcentaje = model.RecargoPorcentaje;
-            producto.StockActual = model.StockActual;
-            producto.StockMinimo = model.StockMinimo;
-            producto.NombreProveedor = model.NombreProveedor;
-
-            if (imagen != null && imagen.Length > 0)
-            {
-                string nombreArchivo = Guid.NewGuid().ToString() + Path.GetExtension(imagen.FileName);
-                string rutaCarpeta = Path.Combine(_webHostEnvironment.WebRootPath, "imagenes", "productos");
-                Directory.CreateDirectory(rutaCarpeta);
-
-                using (var stream = new FileStream(Path.Combine(rutaCarpeta, nombreArchivo), FileMode.Create))
-                {
-                    imagen.CopyTo(stream);
-                }
-
-                producto.Imagen = "/imagenes/productos/" + nombreArchivo;
-            }
-
-            db.ActualizarProducto(producto);
-            return RedirectToAction("Index");
+            imagen.CopyTo(stream);
         }
+
+        producto.Imagen = "/imagenes/productos/" + nombreArchivo;
+    }
+
+    db.ActualizarProducto(producto);
+    return RedirectToAction("Index");
+}
     }
 }

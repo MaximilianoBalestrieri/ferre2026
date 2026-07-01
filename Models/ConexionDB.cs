@@ -1449,8 +1449,8 @@ namespace GestionVentas.Models
                 {
                     cmd.Parameters.AddWithValue("@codigo", p.Codigo);
                     cmd.Parameters.AddWithValue("@nombre", p.Nombre);
-                    cmd.Parameters.AddWithValue("@descripcion", p.Descripcion);
-                    cmd.Parameters.AddWithValue("@categoria", p.Categoria);
+                    cmd.Parameters.AddWithValue("@descripcion", p.Descripcion ?? "");
+                    cmd.Parameters.AddWithValue("@categoria", p.Categoria ?? "");
                     cmd.Parameters.AddWithValue("@precioCosto", p.PrecioCosto);
                     cmd.Parameters.AddWithValue("@recargoPorcentaje", p.RecargoPorcentaje);
                     cmd.Parameters.AddWithValue("@precioVenta", p.PrecioVenta);
@@ -1573,14 +1573,14 @@ namespace GestionVentas.Models
                 {
                     comando.Parameters.AddWithValue("@Codigo", producto.Codigo);
                     comando.Parameters.AddWithValue("@Nombre", producto.Nombre);
-                    comando.Parameters.AddWithValue("@Categoria", producto.Categoria);
-                    comando.Parameters.AddWithValue("@Descripcion", producto.Descripcion);
+                    comando.Parameters.AddWithValue("@Categoria", producto.Categoria ?? "");
+                    comando.Parameters.AddWithValue("@Descripcion", producto.Descripcion ?? "");
                     comando.Parameters.AddWithValue("@PrecioCosto", producto.PrecioCosto);
                     comando.Parameters.AddWithValue("@RecargoPorcentaje", producto.RecargoPorcentaje);
                     // comando.Parameters.AddWithValue("@PrecioVenta", producto.PrecioVenta);
                     comando.Parameters.AddWithValue("@StockActual", producto.StockActual);
                     comando.Parameters.AddWithValue("@StockMinimo", producto.StockMinimo);
-                    comando.Parameters.AddWithValue("@NombreProveedor", producto.NombreProveedor);
+                    comando.Parameters.AddWithValue("@NombreProveedor", producto.NombreProveedor ?? "");
                     comando.Parameters.AddWithValue("@Imagen", producto.Imagen ?? (object)DBNull.Value);
                     comando.Parameters.AddWithValue("@IdProducto", producto.IdProducto);
 

@@ -13,32 +13,71 @@
             <img src="/imagenes/logo.png" alt="Logo" style="height: 50px; margin-right: 15px;">
             <div>
                 <h2 style="margin: 0;">Ferretería Santiago</h2>
-                <small class="text-muted">La Paz - Córdoba</small>
+                <small class="text-muted">La Paz - Córdoba | Tel: 11 69761345</small>
             </div>
         </div>
         <hr style="margin-top: 0; margin-bottom: 15px;">
 
-        <h2 class="mb-4">Factura N° @Model.IdFactura</h2>
+        <h2 class="mb-4">Remito N° @Model.IdFactura</h2>
         <div class="mb-3">
             <strong>Fecha:</strong> @Model.DiaVenta.ToString("dd/MM/yyyy")<br />
             <strong>Vendedor:</strong> @Model.Vendedor<br />
         </div>
         <hr>
-        
-        <div class="card mb-3 border-0">
-            <div class="card-body p-0">
-                <h5 class="card-title">Datos del Cliente</h5>
-                <div class="row">
-                    <div class="col-md-4"><p class="mb-1"><strong>Nombre:</strong> @Model.NombreCliente</p></div>
-                    <div class="col-md-4"><p class="mb-1"><strong>DNI:</strong> @Model.DniCliente</p></div>
-                    <div class="col-md-4"><p class="mb-1"><strong>Teléfono:</strong> @Model.TelefonoCliente</p></div>
+   @* Sector cliente o consumidor final  *@   
+        @{
+    bool esConsumidorFinal =
+        Model.NombreCliente?.Trim().ToLower() == "consumidor final" ||
+        Model.DniCliente == "00000001";
+}
+
+<div class="card mb-3 border-0">
+    <div class="card-body p-0">
+        <h5 class="card-title">Datos del Cliente</h5>
+
+        <div class="row">
+            <div class="col-md-4">
+                <p class="mb-1">
+                    <strong>Nombre:</strong> @Model.NombreCliente
+                </p>
+            </div>
+
+            <div class="col-md-4">
+                <p class="mb-1">
+                    <strong>DNI:</strong> @Model.DniCliente
+                </p>
+            </div>
+
+            @if (!esConsumidorFinal)
+            {
+                <div class="col-md-4">
+                    <p class="mb-1">
+                        <strong>Teléfono:</strong> @Model.TelefonoCliente
+                    </p>
                 </div>
-                <div class="row mt-2">
-                    <div class="col-md-6"><p class="mb-1"><strong>Domicilio:</strong> @Model.Domicilio</p></div>
-                    <div class="col-md-6"><p class="mb-1"><strong>Localidad:</strong> @Model.Localidad</p></div>
+            }
+        </div>
+
+        @if (!esConsumidorFinal)
+        {
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <p class="mb-1">
+                        <strong>Domicilio:</strong> @Model.Domicilio
+                    </p>
+                </div>
+
+                <div class="col-md-6">
+                    <p class="mb-1">
+                        <strong>Localidad:</strong> @Model.Localidad
+                    </p>
                 </div>
             </div>
-        </div>
+        }
+    </div>
+</div>
+
+@* ---------------------------- *@
 
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px;" border="1">
             <thead>
@@ -84,7 +123,7 @@
 <div class="text-center mt-4 mb-5 no-print">
     <hr style="max-width: 800px; margin: 20px auto;">
     <button onclick="window.print()" class="btn btn-primary btn-lg px-4 shadow-sm">
-        <i class="bi bi-file-earmark-pdf"></i> Imprimir Factura (A4)
+        <i class="bi bi-file-earmark-pdf"></i> Imprimir Remito (A4)
     </button>
     
     <a href="@Url.Action("ImprimirTicket", "Ventas", new { id = Model.IdFactura })" 

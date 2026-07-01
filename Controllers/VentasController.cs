@@ -89,7 +89,7 @@ namespace GestionVentas.Controllers
                                 CajaId = cajaAbierta.Id,
                                 Fecha = FechaHelper.AhoraArgentina(),
                                 Monto = datos.MontoVenta,
-                                Concepto = $"Venta Factura N° {resultado.idFactura} {etiquetaMedio}",
+                                Concepto = $"Venta Remito N° {resultado.idFactura} {etiquetaMedio}",
                                 Tipo = TipoMovimiento.Ingreso,
                                 Usuario = User.Identity.Name
                             };
