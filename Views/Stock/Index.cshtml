@@ -65,7 +65,7 @@
                         {{ p.nombreProveedor || 'Sin Proveedor' }}
                     </td>
                     <td class="text-center">
-                        <span :class="p.stockActual <= 5 ? 'badge bg-danger badge-stock' : 'badge bg-success badge-stock'">
+                       <span :class="p.stockActual <= p.stockMinimo ? 'badge bg-danger badge-stock' : 'badge bg-success badge-stock'">
                             {{ p.stockActual }} Unidades
                         </span>
                     </td>

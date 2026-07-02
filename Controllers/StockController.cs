@@ -22,7 +22,7 @@ namespace GestionVentas.Controllers
         }
 
         // Retorna la lista de productos para el buscador de Vue.js
-        [HttpGet]
+    [HttpGet]
 public JsonResult ObtenerProductos()
 {
     List<Productos> productos = new List<Productos>();
@@ -30,9 +30,11 @@ public JsonResult ObtenerProductos()
     using (SqlConnection conn = db.ObtenerConexion())
     {
         conn.Open();
-        
-        // 1. Agregamos NombreProveedor a la consulta SQL
-        string consulta = "SELECT IdProducto, Nombre, Codigo, StockActual, NombreProveedor FROM productos ORDER BY Nombre ASC";
+
+        string consulta = @"
+            SELECT IdProducto, Nombre, Codigo, StockActual, StockMinimo, NombreProveedor
+            FROM productos
+            ORDER BY Nombre ASC";
 
         using (SqlCommand cmd = new SqlCommand(consulta, conn))
         {
@@ -46,13 +48,14 @@ public JsonResult ObtenerProductos()
                         Nombre = reader.GetString(1),
                         Codigo = reader.GetString(2),
                         StockActual = reader.IsDBNull(3) ? 0 : reader.GetInt32(3),
-                        // 2. Mapeamos la nueva columna (es la posición 4)
-                        NombreProveedor = reader.IsDBNull(4) ? "Sin Proveedor" : reader.GetString(4)
+                        StockMinimo = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
+                        NombreProveedor = reader.IsDBNull(5) ? "Sin Proveedor" : reader.GetString(5)
                     });
                 }
             }
         }
     }
+
     return Json(productos);
 }
 

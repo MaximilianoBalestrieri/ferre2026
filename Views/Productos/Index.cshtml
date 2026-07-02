@@ -70,8 +70,8 @@
                     rutaImagen = "/" + rutaImagen;
                 }
 
-                var stockClass = prod.StockActual <= 3 ? "text-danger fw-bold" : "";
-
+             //   var stockClass = prod.StockActual <= 3 ? "text-danger fw-bold" : "";
+  var stockClass = prod.StockActual <= prod.StockMinimo ? "text-danger fw-bold" : "";
                 <tr>
                     <td class="text-center">@prod.Codigo</td>
                     <td>@prod.Nombre</td>
