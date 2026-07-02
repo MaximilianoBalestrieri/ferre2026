@@ -15,73 +15,75 @@ namespace GestionVentas.Controllers
         {
             db = new ConexionDB(config);
         }
-
-       public ActionResult Index(DateTime? desde, DateTime? hasta)
+public ActionResult Index(DateTime? desde, DateTime? hasta)
 {
     List<ProductoVendidoViewModel> lista = new List<ProductoVendidoViewModel>();
+
+    ViewBag.Desde = desde?.ToString("yyyy-MM-dd");
+    ViewBag.Hasta = hasta?.ToString("yyyy-MM-dd");
+
+    // Validar que la fecha Desde no sea mayor que Hasta
+if (desde.HasValue && hasta.HasValue && desde.Value.Date > hasta.Value.Date)
+{
+    TempData["Error"] = "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.";
+    return View(lista);
+}
+
+    // Al ingresar por primera vez no mostramos ningún registro
+    if (!desde.HasValue && !hasta.HasValue)
+    {
+        return View(lista);
+    }
 
     using (SqlConnection conn = db.ObtenerConexion())
     {
         conn.Open();
 
         string consulta = @"
-            SELECT 
-                fi.nombreProd AS ProductoNombre, -- Usar un alias único para evitar conflictos
-                SUM(fi.Cantidad) AS TotalCantidad, 
+            SELECT
+                fi.nombreProd AS ProductoNombre,
+                SUM(fi.Cantidad) AS TotalCantidad,
                 fi.Precio AS PrecioUnitario
             FROM facturaitem fi
             INNER JOIN facturas f ON fi.IdFactura = f.idFactura
-            WHERE 1=1 -- Usar siempre WHERE 1=1 para facilitar la adición de condiciones
-            
-            -- Lógica para incluir condiciones de fecha solo si se proporcionan
-            " + (desde.HasValue ? " AND f.diaVenta >= @desde " : "") + @"
-            " + (hasta.HasValue ? " AND f.diaVenta <= @hasta " : "") + @"
-            
-            GROUP BY fi.nombreProd, fi.Precio
-            ORDER BY TotalCantidad DESC;
+            WHERE 1 = 1
         ";
 
-        using (var cmd = new SqlCommand(consulta, conn))
+        if (desde.HasValue)
+            consulta += " AND f.diaVenta >= @desde ";
+
+        if (hasta.HasValue)
+            consulta += " AND f.diaVenta < @hastaMasUnDia ";
+
+        consulta += @"
+            GROUP BY fi.nombreProd, fi.Precio
+            ORDER BY TotalCantidad DESC";
+
+        using (SqlCommand cmd = new SqlCommand(consulta, conn))
         {
-            // 1. CORRECCIÓN: Agregar parámetros de fecha solo si tienen valor.
-            // Si son null, la consulta simplemente ignora la cláusula 'AND'.
             if (desde.HasValue)
-            {
-                // Usamos Add() en lugar de AddWithValue() para asegurar el tipo SqlDbType
-                cmd.Parameters.Add("@desde", SqlDbType.DateTime).Value = desde.Value;
-            }
+                cmd.Parameters.Add("@desde", SqlDbType.DateTime).Value = desde.Value.Date;
+
             if (hasta.HasValue)
-            {
-                cmd.Parameters.Add("@hasta", SqlDbType.DateTime).Value = hasta.Value;
-            }
+                cmd.Parameters.Add("@hastaMasUnDia", SqlDbType.DateTime).Value = hasta.Value.Date.AddDays(1);
 
             using (var reader = cmd.ExecuteReader())
             {
-                // 2. CORRECCIÓN: Lectura segura con GetOrdinal
-                int ordNombre = reader.GetOrdinal("ProductoNombre"); // Usamos el nuevo alias
-                int ordCantidad = reader.GetOrdinal("TotalCantidad");
-                int ordPrecio = reader.GetOrdinal("PrecioUnitario");
-
                 while (reader.Read())
                 {
                     lista.Add(new ProductoVendidoViewModel
                     {
-                        // 3. CORRECCIÓN: Uso de métodos GetX y manejo de nulos (aunque SUM y GROUP BY deben evitar nulos aquí)
-                        Nombre = reader.GetString(ordNombre),
-                        Cantidad = reader.GetInt32(ordCantidad),
-                        PrecioUnitario = reader.GetDecimal(ordPrecio)
+                        Nombre = reader["ProductoNombre"].ToString(),
+                        Cantidad = Convert.ToInt32(reader["TotalCantidad"]),
+                        PrecioUnitario = Convert.ToDecimal(reader["PrecioUnitario"])
                     });
                 }
             }
         }
     }
 
-    ViewBag.Desde = desde?.ToString("yyyy-MM-dd");
-    ViewBag.Hasta = hasta?.ToString("yyyy-MM-dd");
-
     return View(lista);
-
-    }
+}
 
     }
 }

@@ -6,6 +6,13 @@
 
 <h2 class="text-center">🛒 Productos Vendidos</h2>
 
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger text-center">
+        @TempData["Error"]
+    </div>
+}
+
 <form method="get" class="mb-3 d-flex justify-content-center">
     <div class="form-group mx-2">
         <label>Desde:</label>
